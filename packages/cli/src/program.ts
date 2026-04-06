@@ -27,6 +27,7 @@ import { fanficCommand } from "./commands/fanfic.js";
 import { studioCommand } from "./commands/studio.js";
 import { consolidateCommand } from "./commands/consolidate.js";
 import { createTuiCommand } from "./commands/tui.js";
+import { launchTui } from "./tui/app.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
@@ -43,7 +44,11 @@ export function createProgram(hooks: ProgramHooks = {}): Command {
     .description("InkOS — Multi-agent novel production system")
     .version(version)
     .action(async () => {
-      await hooks.launchTui?.(process.cwd());
+      if (hooks.launchTui) {
+        await hooks.launchTui(process.cwd());
+        return;
+      }
+      await launchTui(process.cwd());
     });
 
   program.addCommand(initCommand);
