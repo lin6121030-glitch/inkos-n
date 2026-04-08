@@ -3,7 +3,11 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, basename } from "node:path";
 import readline from "node:readline/promises";
-import { c, bold, cyan, green, yellow, gray, dim, red, reset } from "./ansi.js";
+import {
+  c, bold, dim, italic,
+  cyan, green, yellow, gray, red,
+  brightCyan, brightGreen, brightWhite,
+} from "./ansi.js";
 import { GLOBAL_ENV_PATH } from "../utils.js";
 
 const PROVIDERS = ["openai", "anthropic", "custom"] as const;
@@ -35,42 +39,47 @@ export async function interactiveLlmSetup(
 
   try {
     console.log();
-    console.log(c("  LLM 配置向导", bold, cyan));
-    console.log(c("  Configure your LLM provider to start writing.", dim));
+    console.log(`  ${c("◈", brightCyan)} ${c("LLM Setup", bold, brightWhite)}`);
+    console.log(c("  Configure your model provider to start writing.", dim));
     console.log();
 
-    const providerInput = await rl.question(
-      c("  Provider ", gray) +
-        c("(openai/anthropic/custom)", dim) +
-        c(": ", gray),
-    );
+    // Provider
+    console.log(`  ${c("1", cyan)}  ${c("Provider", gray)}`);
+    console.log(c("     openai / anthropic / custom (OpenAI-compatible proxy)", dim));
+    const providerInput = await rl.question(`     ${c("❯", cyan)} `);
     const provider = PROVIDERS.includes(providerInput.trim() as typeof PROVIDERS[number])
       ? providerInput.trim()
       : "openai";
+    console.log(`     ${c("✓", brightGreen)} ${provider}`);
+    console.log();
 
-    const baseUrl = await rl.question(
-      c("  Base URL ", gray) +
-        c("(API endpoint)", dim) +
-        c(": ", gray),
-    );
+    // Base URL
+    console.log(`  ${c("2", cyan)}  ${c("Base URL", gray)}`);
+    console.log(c("     Your API endpoint", dim));
+    const baseUrl = await rl.question(`     ${c("❯", cyan)} `);
+    console.log(`     ${c("✓", brightGreen)} ${baseUrl.trim() || "(default)"}`);
+    console.log();
 
-    const apiKey = await rl.question(
-      c("  API Key ", gray) +
-        c(": ", gray),
-    );
+    // API Key
+    console.log(`  ${c("3", cyan)}  ${c("API Key", gray)}`);
+    const apiKey = await rl.question(`     ${c("❯", cyan)} `);
+    const maskedKey = apiKey.trim().length > 8
+      ? apiKey.trim().slice(0, 4) + "···" + apiKey.trim().slice(-4)
+      : "···";
+    console.log(`     ${c("✓", brightGreen)} ${maskedKey}`);
+    console.log();
 
-    const model = await rl.question(
-      c("  Model ", gray) +
-        c("(e.g. gpt-4o, claude-sonnet-4-20250514)", dim) +
-        c(": ", gray),
-    );
+    // Model
+    console.log(`  ${c("4", cyan)}  ${c("Model", gray)}`);
+    console.log(c("     e.g. gpt-4o, claude-sonnet-4-20250514, deepseek-chat", dim));
+    const model = await rl.question(`     ${c("❯", cyan)} `);
+    console.log(`     ${c("✓", brightGreen)} ${model.trim()}`);
+    console.log();
 
-    const scope = await rl.question(
-      c("  Save to ", gray) +
-        c("(global/project)", dim) +
-        c(" [global]: ", gray),
-    );
-
+    // Scope
+    console.log(`  ${c("5", cyan)}  ${c("Save scope", gray)}`);
+    console.log(c("     global = all projects, project = this directory only", dim));
+    const scope = await rl.question(`     ${c("❯", cyan)} ${c("[global]", dim)} `);
     const useGlobal = scope.trim().toLowerCase() !== "project";
 
     const envContent = [
@@ -84,10 +93,12 @@ export async function interactiveLlmSetup(
       const globalDir = join(GLOBAL_ENV_PATH, "..");
       await mkdir(globalDir, { recursive: true });
       await writeFile(GLOBAL_ENV_PATH, envContent + "\n", "utf-8");
-      console.log(c(`  ✓ Saved to ${GLOBAL_ENV_PATH}`, green));
+      console.log();
+      console.log(`  ${c("✓", brightGreen, bold)} ${c("Saved to", dim)} ${c(GLOBAL_ENV_PATH, gray)}`);
     } else {
       await writeFile(join(projectRoot, ".env"), envContent + "\n", "utf-8");
-      console.log(c("  ✓ Saved to .env", green));
+      console.log();
+      console.log(`  ${c("✓", brightGreen, bold)} ${c("Saved to", dim)} ${c(".env", gray)}`);
     }
     console.log();
   } finally {
@@ -97,7 +108,8 @@ export async function interactiveLlmSetup(
 
 async function autoInit(cwd: string): Promise<void> {
   const projectName = basename(cwd);
-  console.log(c(`  Auto-initializing project in ${projectName}/ ...`, dim));
+  console.log();
+  console.log(`  ${c("◌", cyan)} ${c(`Initializing project in ${projectName}/ ...`, dim)}`);
 
   await mkdir(join(cwd, "books"), { recursive: true });
   await mkdir(join(cwd, "radar"), { recursive: true });
@@ -148,14 +160,12 @@ async function autoInit(cwd: string): Promise<void> {
     "utf-8",
   );
 
-  console.log(c("  ✓ Project initialized", green));
+  console.log(`  ${c("✓", brightGreen, bold)} ${c("Project initialized", dim)}`);
 }
 
 async function hasLlmConfig(projectRoot: string): Promise<boolean> {
-  // Check project .env first
   const projectEnv = join(projectRoot, ".env");
   if (await checkEnvForKey(projectEnv)) return true;
-  // Check global
   return checkEnvForKey(GLOBAL_ENV_PATH);
 }
 

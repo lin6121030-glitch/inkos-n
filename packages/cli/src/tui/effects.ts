@@ -150,67 +150,65 @@ export class ThemedSpinner {
   }
 }
 
+/* ── ASCII Art Logo ── */
+
+const ASCII_LOGO = [
+  " ██╗███╗   ██╗██╗  ██╗ ██████╗ ███████╗",
+  " ██║████╗  ██║██║ ██╔╝██╔═══██╗██╔════╝",
+  " ██║██╔██╗ ██║█████╔╝ ██║   ██║███████╗",
+  " ██║██║╚██╗██║██╔═██╗ ██║   ██║╚════██║",
+  " ██║██║ ╚████║██║  ██╗╚██████╔╝███████║",
+  " ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝",
+];
+
+/* ── Input separator ── */
+
+export function printInputSeparator(): void {
+  const w = Math.min(process.stdout.columns ?? 60, 60);
+  console.log(c("  " + "─".repeat(w - 4), gray));
+}
+
 /* ── Startup animation ── */
 
 export async function animateStartup(version: string, projectName: string, bookTitle?: string): Promise<void> {
   const isTTY = process.stdout.isTTY;
 
-  // Typing effect for logo
-  const logoText = "InkOS";
-  const tagline = "Autonomous Novel Writing AI Agent";
-
   if (isTTY) {
     console.log();
     process.stdout.write(hideCursor);
 
-    // Draw box top
-    process.stdout.write("  ╭" + "─".repeat(52) + "╮\n");
-
-    // Animate logo typing
-    process.stdout.write("  │  ");
-    for (const char of logoText) {
-      process.stdout.write(c(char, bold, brightCyan));
-      await sleep(60);
+    // Animate ASCII logo line by line
+    for (let i = 0; i < ASCII_LOGO.length; i++) {
+      const line = ASCII_LOGO[i]!;
+      // Gradient: top lines brighter, bottom lines dimmer
+      const shade = i < 2 ? brightCyan : i < 4 ? cyan : dim + cyan;
+      process.stdout.write(`  ${c(line, shade)}\n`);
+      await sleep(40);
     }
-    process.stdout.write(c(` v${version}`, dim));
-    const logoPad = 52 - 2 - logoText.length - ` v${version}`.length;
-    process.stdout.write(" ".repeat(Math.max(0, logoPad)) + "│\n");
 
-    // Animate tagline
-    process.stdout.write("  │  ");
-    for (let i = 0; i < tagline.length; i++) {
-      process.stdout.write(c(tagline[i]!, dim));
-      if (i % 3 === 0) await sleep(15);
-    }
-    const tagPad = 52 - 2 - tagline.length;
-    process.stdout.write(" ".repeat(Math.max(0, tagPad)) + "│\n");
+    // Version + tagline below logo
+    console.log(c(`  v${version}`, dim));
+    await sleep(150);
 
-    // Box bottom
-    process.stdout.write("  ╰" + "─".repeat(52) + "╯\n");
     process.stdout.write(showCursor);
-
-    await sleep(200);
   } else {
-    // Non-TTY fallback
     console.log();
-    console.log(
-      box([
-        `  ${c("InkOS", bold, brightCyan)}${c(` v${version}`, dim)}`,
-        `  ${c(tagline, dim)}`,
-      ]),
-    );
+    for (const line of ASCII_LOGO) {
+      console.log(`  ${c(line, brightCyan)}`);
+    }
+    console.log(c(`  v${version}`, dim));
   }
 
-  // Project info with fade-in effect
+  // Project info
   console.log();
   if (isTTY) {
     await typewrite(`  ${c("◇", cyan)} ${c("Project", gray)}  ${c(projectName, brightWhite)}`, 8);
-    await sleep(100);
+    await sleep(80);
     const bookDisplay = bookTitle
       ? c(bookTitle, brightWhite)
       : c("no book yet", dim);
     await typewrite(`  ${c("◇", cyan)} ${c("Book", gray)}     ${bookDisplay}`, 8);
-    await sleep(100);
+    await sleep(80);
   } else {
     console.log(`  ${c("◇", cyan)} ${c("Project", gray)}  ${c(projectName, brightWhite)}`);
     const bookDisplay = bookTitle
@@ -220,7 +218,9 @@ export async function animateStartup(version: string, projectName: string, bookT
   }
 
   console.log();
-  console.log(c("  Type anything to start. /help for commands.", dim));
+  console.log(c("  /help for commands. Type anything to begin.", dim));
+  console.log();
+  printInputSeparator();
   console.log();
 }
 

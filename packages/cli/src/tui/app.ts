@@ -27,6 +27,7 @@ import {
   intentToTheme,
   printStyledHelp,
   printStyledStatus,
+  printInputSeparator,
 } from "./effects.js";
 
 /* ── Version ── */
@@ -243,6 +244,8 @@ export async function launchTui(
 
     if (/^\/help$/i.test(input) || /^(help|帮助)$/i.test(input)) {
       printStyledHelp();
+      printInputSeparator();
+      console.log();
       rl.prompt();
       continue;
     }
@@ -260,6 +263,8 @@ export async function launchTui(
       } catch {
         console.log(c("  Could not load session.", dim));
       }
+      printInputSeparator();
+      console.log();
       rl.prompt();
       continue;
     }
@@ -272,6 +277,8 @@ export async function launchTui(
 
     // Delegate to interaction layer with themed animation
     await processInput(projectRoot, input, tools);
+    console.log();
+    printInputSeparator();
     console.log();
 
     rl.prompt();
