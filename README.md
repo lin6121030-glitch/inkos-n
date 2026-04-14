@@ -32,6 +32,8 @@
 
 ## 使用方法
 
+本定制版的使用方法与原版 InkOS 相同，详细使用方法请参考 [原 InkOS 项目](https://github.com/Narcooo/inkos)。
+
 ### 构建项目
 ```bash
 pnpm install
