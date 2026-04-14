@@ -30,28 +30,87 @@
 
 ---
 
+## 安装
+
+### 通过 npm 安装（推荐）
+
+```bash
+npm install -g inkos-n
+```
+
+### 通过 yarn 安装
+
+```bash
+yarn global add inkos-n
+```
+
+### 通过 pnpm 安装
+
+```bash
+pnpm add -g inkos-n
+```
+
+---
+
 ## 使用方法
 
 本定制版的使用方法与原版 InkOS 相同，详细使用方法请参考 [原 InkOS 项目](https://github.com/Narcooo/inkos)。
 
-### 构建项目
-```bash
-pnpm install
-pnpm build
-```
-
 ### 创建书籍
+
 ```bash
-cd 你的项目目录
-node ../packages/cli/dist/index.js book create --title "你的书名" --genre 你的题材 --target-chapters 章数 --brief "简报路径"
+inkos book create --title "你的书名" --genre fantasy --target-chapters 800 --brief "简报路径"
 ```
 
 ### 编写章节
+
 ```bash
-node ../packages/cli/dist/index.js write next
+inkos write next
+```
+
+### 启动 TUI
+
+```bash
+inkos tui
 ```
 
 ---
+
+## npm 包
+
+| 包名 | 说明 |
+|------|------|
+| [inkos-n](https://www.npmjs.com/package/inkos-n) | CLI 命令行工具 |
+| [inkos-n-core](https://www.npmjs.com/package/inkos-n-core) | 核心引擎 |
+| [inkos-n-studio](https://www.npmjs.com/package/inkos-n-studio) | Web 工作台 |
+
+---
+
+## 简报格式
+
+本定制版支持分段简报格式：
+
+```
+==世界观基石start==
+（世界观设定）
+==世界观基石end==
+
+==创作规则start==
+（规则约束）
+==创作规则end==
+
+==书的大纲start==
+（剧情大纲）
+==书的大纲end==
+
+==风格与样例start==
+（风格偏好）
+==风格与样例end==
+
+==其他内容start==
+（其他补充）
+==其他内容end==
+```
 
 ## 简报格式
 
