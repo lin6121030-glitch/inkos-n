@@ -526,7 +526,10 @@ export class PlannerAgent extends BaseAgent {
       break;
     }
 
-    return this.extractFirstDirective(volumeOutline);
+    throw new Error(
+      `[Planner] Cannot find outline node for chapter ${chapterNumber} in volume_outline. ` +
+      `卷纲中未找到第${chapterNumber}章的对应节点。`,
+    );
   }
 
   private cleanOutlineContent(content?: string): string | undefined {

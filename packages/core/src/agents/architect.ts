@@ -33,6 +33,8 @@ export class ArchitectAgent extends BaseAgent {
       : "";
     const reviewFeedbackBlock = this.buildReviewFeedbackBlock(reviewFeedback, resolvedLanguage);
 
+    const briefSections = externalContext ? this.parseBriefSections(externalContext) : null;
+
     const numericalBlock = gp.numericalSystem
       ? `- 有明确的数值/资源体系可追踪
 - 在 book_rules 中定义 numericalSystemOverrides（hardCap、resourceTypes）`
@@ -45,6 +47,12 @@ export class ArchitectAgent extends BaseAgent {
     const eraBlock = gp.eraResearch
       ? "- 需要年代考据支撑（在 book_rules 中设置 eraConstraints）"
       : "";
+
+    const briefRef = (label: string, content: string, isZh: boolean) => {
+      if (!content) return "";
+      const prefix = isZh ? "【参考】" : "[Reference]";
+      return `\n${prefix} ${label}：\n${content}\n`;
+    };
 
     const storyBiblePrompt = resolvedLanguage === "en"
       ? `Use structured second-level headings:
@@ -253,35 +261,115 @@ ${genreBody}
 你需要生成以下内容，每个部分用 === SECTION: <name> === 分隔：
 
 === SECTION: story_bible ===
-${storyBiblePrompt}
+${briefSections ? briefRef("世界观基石", briefSections.worldview, resolvedLanguage === "zh") + briefRef("风格与样例", briefSections.style, resolvedLanguage === "zh") : ""}${storyBiblePrompt}
 
 === SECTION: volume_outline ===
-${volumeOutlinePrompt}
+${briefSections ? briefRef("书的大纲", briefSections.outline, resolvedLanguage === "zh") : ""}${volumeOutlinePrompt}
 
 === SECTION: book_rules ===
-${bookRulesPrompt}
+${briefSections ? briefRef("创作规则", briefSections.rules, resolvedLanguage === "zh") : ""}${bookRulesPrompt}
 
 === SECTION: current_state ===
-${currentStatePrompt}
+${briefSections ? briefRef("风格与样例", briefSections.style, resolvedLanguage === "zh") : ""}${currentStatePrompt}
 
 === SECTION: pending_hooks ===
-${pendingHooksPrompt}
+${briefSections ? briefRef("其他内容", briefSections.other, resolvedLanguage === "zh") : ""}${pendingHooksPrompt}
 
 ${finalRequirementsPrompt}`;
 
     const langPrefix = resolvedLanguage === "en"
-      ? `【LANGUAGE OVERRIDE】ALL output (story_bible, volume_outline, book_rules, current_state, pending_hooks) MUST be written in English. Character names, place names, and all prose must be in English. The === SECTION: === tags remain unchanged.\n\n`
+      ? `【LANGUAGE OVERRIDE】ALL output MUST be written in English. Character names, place names, and all prose must be in English.\n\n`
       : "";
-    const userMessage = resolvedLanguage === "en"
-      ? `Generate the complete foundation for a ${gp.name} novel titled "${book.title}". Write everything in English.`
-      : `请为标题为"${book.title}"的${gp.name}小说生成完整基础设定。`;
 
-    const response = await this.chat([
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: langPrefix + systemPrompt },
-      { role: "user", content: userMessage },
-    ], { maxTokens: 16384, temperature: 0.8 });
+    ];
 
-    return this.parseSections(response.content);
+    const chatOptions = { maxTokens: 49152, temperature: 0.8 as const };
+
+    const userPrompts = {
+      storyBible: resolvedLanguage === "en"
+        ? `Generate the story_bible section first. Use === SECTION: story_bible === as the section marker.`
+        : `请先生成 story_bible 部分。使用 === SECTION: story_bible === 作为分段标记。`,
+      volumeOutline: resolvedLanguage === "en"
+        ? `Now generate the volume_outline section. Use === SECTION: volume_outline === as the section marker.`
+        : `请生成 volume_outline 部分。使用 === SECTION: volume_outline === 作为分段标记。`,
+      bookRules: resolvedLanguage === "en"
+        ? `Now generate the book_rules section. Use === SECTION: book_rules === as the section marker.`
+        : `请生成 book_rules 部分。使用 === SECTION: book_rules === 作为分段标记。`,
+      currentState: resolvedLanguage === "en"
+        ? `Now generate the current_state section. Use === SECTION: current_state === as the section marker.`
+        : `请生成 current_state 部分。使用 === SECTION: current_state === 作为分段标记。`,
+      pendingHooks: resolvedLanguage === "en"
+        ? `Now generate the pending_hooks section. Use === SECTION: pending_hooks === as the section marker.`
+        : `请生成 pending_hooks 部分。使用 === SECTION: pending_hooks === 作为分段标记。`,
+    };
+
+    messages.push({ role: "user", content: userPrompts.storyBible });
+    this.ctx.logger?.info("=== Generating story_bible (round 1/5) ===");
+    const r1 = await this.chat(messages, chatOptions);
+    this.ctx.logger?.info(`story_bible response: ${r1.content.slice(0, 200)}...`);
+    messages.push({ role: "assistant", content: r1.content });
+    const storyBible = this.extractSection(r1.content, "story_bible");
+
+    messages.push({ role: "user", content: userPrompts.volumeOutline });
+    this.ctx.logger?.info("=== Generating volume_outline (round 2/5) ===");
+    const r2 = await this.chat(messages, chatOptions);
+    this.ctx.logger?.info(`volume_outline response: ${r2.content.slice(0, 200)}...`);
+    messages.push({ role: "assistant", content: r2.content });
+    const volumeOutline = this.extractSection(r2.content, "volume_outline");
+
+    messages.push({ role: "user", content: userPrompts.bookRules });
+    this.ctx.logger?.info("=== Generating book_rules (round 3/5) ===");
+    const r3 = await this.chat(messages, chatOptions);
+    this.ctx.logger?.info(`book_rules response: ${r3.content.slice(0, 200)}...`);
+    messages.push({ role: "assistant", content: r3.content });
+    const bookRules = this.extractSection(r3.content, "book_rules");
+
+    messages.push({ role: "user", content: userPrompts.currentState });
+    this.ctx.logger?.info("=== Generating current_state (round 4/5) ===");
+    const r4 = await this.chat(messages, chatOptions);
+    this.ctx.logger?.info(`current_state response: ${r4.content.slice(0, 200)}...`);
+    messages.push({ role: "assistant", content: r4.content });
+    const currentState = this.extractSection(r4.content, "current_state");
+
+    messages.push({ role: "user", content: userPrompts.pendingHooks });
+    this.ctx.logger?.info("=== Generating pending_hooks (round 5/5) ===");
+    const r5 = await this.chat(messages, chatOptions);
+    this.ctx.logger?.info(`pending_hooks response: ${r5.content.slice(0, 200)}...`);
+    const pendingHooks = this.extractSection(r5.content, "pending_hooks");
+
+    return {
+      storyBible: storyBible || this.extractSection(r1.content, "story_bible"),
+      volumeOutline: volumeOutline || this.extractSection(r2.content, "volume_outline"),
+      bookRules: bookRules || this.extractSection(r3.content, "book_rules"),
+      currentState: currentState || this.extractSection(r4.content, "current_state"),
+      pendingHooks: pendingHooks || this.extractSection(r5.content, "pending_hooks"),
+    };
+  }
+
+  private extractSection(content: string, sectionName: string): string {
+    const pattern = new RegExp(`^\\s*===\\s*SECTION\\s*[：:]\\s*${sectionName.replace(/_/g, "[_：:]")}\\s*===\\s*([\\s\\S]*?)$`, "gim");
+    const match = pattern.exec(content);
+    if (match) {
+      return match[1]?.trim() || "";
+    }
+    const lines = content.split("\n");
+    const sectionLines: string[] = [];
+    let inSection = false;
+    for (const line of lines) {
+      if (line.includes(`=== SECTION:`) && line.toLowerCase().includes(sectionName.toLowerCase())) {
+        inSection = true;
+        continue;
+      }
+      if (inSection && line.startsWith("===")) {
+        break;
+      }
+      if (inSection) {
+        sectionLines.push(line);
+      }
+    }
+    return sectionLines.join("\n").trim();
   }
 
   async writeFoundationFiles(
@@ -894,6 +982,34 @@ ${trimmed}\n`;
     if (!value) return 0;
     const match = value.match(/\d+/);
     return match ? parseInt(match[0], 10) : 0;
+  }
+
+  private parseBriefSections(brief: string): Record<string, string> {
+    const sections: Record<string, string> = {
+      worldview: "",
+      rules: "",
+      outline: "",
+      style: "",
+      other: "",
+    };
+
+    const patterns = [
+      { key: "worldview", start: "==世界观基石start==", end: "==世界观基石end==" },
+      { key: "rules", start: "==创作规则start==", end: "==创作规则end==" },
+      { key: "outline", start: "==书的大纲start==", end: "==书的大纲end==" },
+      { key: "style", start: "==风格与样例start==", end: "==风格与样例end==" },
+      { key: "other", start: "==其他内容start==", end: "==其他内容end==" },
+    ];
+
+    for (const p of patterns) {
+      const startIdx = brief.indexOf(p.start);
+      const endIdx = brief.indexOf(p.end);
+      if (startIdx !== -1 && endIdx !== -1) {
+        sections[p.key] = brief.slice(startIdx + p.start.length, endIdx).trim();
+      }
+    }
+
+    return sections;
   }
 
   private hasNarrativeProgress(value: string | undefined): boolean {

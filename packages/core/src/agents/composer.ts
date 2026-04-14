@@ -61,8 +61,8 @@ export class ComposerAgent extends BaseAgent {
         { id: "L4", name: "current_task", precedence: 70, scope: "local" },
       ],
       sections: {
-        hard: ["story_bible", "current_state", "book_rules"],
-        soft: ["author_intent", "current_focus", "volume_outline"],
+        hard: ["story_bible", "current_state", "book_rules", "volume_outline"],
+        soft: ["author_intent", "current_focus"],
         diagnostic: ["anti_ai_checks", "continuity_audit", "style_regression_checks"],
       },
       overrideEdges: [
