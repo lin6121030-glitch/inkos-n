@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { BookCreationDraft } from "@actalk/inkos-core";
+import type { BookCreationDraft } from "inkos-n-core";
 import { fetchJson, useApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";

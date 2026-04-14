@@ -1,6 +1,6 @@
 {
-  "name": "@lin6121030-glitch/inkos-n",
-  "version": "1.2.0",
+  "name": "inkos-n",
+  "version": "1.2.1",
   "description": "InkOS 定制版 - 大纲契约机制",
   "keywords": [
     "ai-novel-writing",
@@ -43,8 +43,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@lin6121030-glitch/inkos-n-core": "workspace:*",
-    "@lin6121030-glitch/inkos-n-studio": "workspace:*",
+    "inkos-n-core": "workspace:*",
+    "inkos-n-studio": "workspace:*",
     "commander": "^13.0.0",
     "dotenv": "^16.4.0",
     "epub-gen-memory": "^1.0.10",

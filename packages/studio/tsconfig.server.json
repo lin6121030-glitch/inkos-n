@@ -1,10 +1,16 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
     "lib": ["ES2022"],
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "inkos-n-core": ["../core/dist/index.d.ts"],
+      "inkos-n-core/*": ["../core/dist/*"]
+    }
   },
   "include": ["src/api"],
   "exclude": ["src/api/**/*.test.ts"]

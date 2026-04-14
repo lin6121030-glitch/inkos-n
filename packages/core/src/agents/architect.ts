@@ -349,10 +349,11 @@ ${finalRequirementsPrompt}`;
   }
 
   private extractSection(content: string, sectionName: string): string {
-    const pattern = new RegExp(`^\\s*===\\s*SECTION\\s*[：:]\\s*${sectionName.replace(/_/g, "[_：:]")}\\s*===\\s*([\\s\\S]*?)$`, "gim");
+    const escapedName = sectionName.replace(/_/g, "[_：:]");
+    const pattern = new RegExp(`^\\s*===\\s*SECTION\\s*[：:]\\s*${escapedName}\\s*===\\n([\\s\\S]*?)(?=^\\s*===\\s*SECTION|\\s*$)`, "gim");
     const match = pattern.exec(content);
-    if (match) {
-      return match[1]?.trim() || "";
+    if (match && match[1]) {
+      return match[1].trim();
     }
     const lines = content.split("\n");
     const sectionLines: string[] = [];

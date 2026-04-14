@@ -1,6 +1,6 @@
 {
-  "name": "@lin6121030-glitch/inkos-n-core",
-  "version": "1.2.0",
+  "name": "inkos-n-core",
+  "version": "1.2.1",
   "description": "InkOS-N core engine — 大纲契约机制定制版",
   "keywords": [
     "ai-novel-writing",
