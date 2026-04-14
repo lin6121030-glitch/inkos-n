@@ -1,7 +1,7 @@
 {
-  "name": "@actalk/inkos",
+  "name": "@lin6121030-glitch/inkos-n",
   "version": "1.2.0",
-  "description": "Autonomous AI novel writing CLI agent — 10-agent pipeline that writes, audits, and revises novels with continuity tracking. Supports LitRPG, Progression Fantasy, Isekai, Romantasy, Sci-Fi and more.",
+  "description": "InkOS 定制版 - 大纲契约机制",
   "keywords": [
     "ai-novel-writing",
     "ai-writing-agent",
@@ -30,7 +30,7 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Narcooo/inkos.git",
+    "url": "https://github.com/lin6121030-glitch/inkos-n.git",
     "directory": "packages/cli"
   },
   "scripts": {
@@ -43,8 +43,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@actalk/inkos-core": "workspace:*",
-    "@actalk/inkos-studio": "workspace:*",
+    "@lin6121030-glitch/inkos-n-core": "workspace:*",
+    "@lin6121030-glitch/inkos-n-studio": "workspace:*",
     "commander": "^13.0.0",
     "dotenv": "^16.4.0",
     "epub-gen-memory": "^1.0.10",

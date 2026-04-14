@@ -1,7 +1,7 @@
 {
-  "name": "@actalk/inkos-core",
+  "name": "@lin6121030-glitch/inkos-n-core",
   "version": "1.2.0",
-  "description": "InkOS core engine — multi-agent novel writing pipeline with 33-dimension continuity audit, style cloning, and de-AI-ification",
+  "description": "InkOS-N core engine — 大纲契约机制定制版",
   "keywords": [
     "ai-novel-writing",
     "ai-writing-agent",
@@ -31,7 +31,7 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Narcooo/inkos.git",
+    "url": "https://github.com/lin6121030-glitch/inkos-n.git",
     "directory": "packages/core"
   },
   "scripts": {

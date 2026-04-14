@@ -1,7 +1,7 @@
 {
-  "name": "@actalk/inkos-studio",
+  "name": "@lin6121030-glitch/inkos-n-studio",
   "version": "1.2.0",
-  "description": "InkOS Studio — Web workbench for novel writing",
+  "description": "InkOS-N Studio — 大纲契约机制定制版 Web 工作台",
   "type": "module",
   "main": "dist/api/index.js",
   "types": "dist/api/index.d.ts",
@@ -12,7 +12,7 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Narcooo/inkos.git",
+    "url": "https://github.com/lin6121030-glitch/inkos-n.git",
     "directory": "packages/studio"
   },
   "scripts": {
@@ -28,7 +28,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit"
   },
   "dependencies": {
-    "@actalk/inkos-core": "workspace:*",
+    "@lin6121030-glitch/inkos-n-core": "workspace:*",
     "@base-ui/react": "^1.3.0",
     "@hono/node-server": "^1.13.0",
     "clsx": "^2.1.1",
