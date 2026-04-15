@@ -65,6 +65,12 @@ Protagonist setup (identity / advantage / personality core / behavioral boundari
 ## 03_Factions_and_Characters
 Major factions and important supporting characters (for each: name, identity, motivation, relationship to protagonist, independent goal)
 
+## Important Requirements
+- The brief only provides core factions and main characters; you must **expand** to create a richer world
+- Beyond the core factions from the brief, add: 2-3 secondary factions, 5-10 secondary groups/organizations
+- Beyond the main character from the brief, add: 3-5 core supporting characters, 10-20 functional characters
+- Each faction and character must have unique distinguishing features, no duplicates
+
 ## 04_Geography_and_Environment
 Map / scene design and environmental traits
 
@@ -90,6 +96,12 @@ Core blurb principle:
 
 ## 03_势力与人物
 势力分布、重要配角（每人：名字、身份、动机、与主角关系、独立目标）
+
+## 重要要求
+- 简报只提供了核心势力和主要人物，你必须**扩展**出更丰富的世界观
+- 除了简报给出的势力外，必须添加：2-3个次级势力、5-10个次级组织/群体
+- 除了简报给出的主角外，必须添加：3-5个核心配角、10-20个功能性配角
+- 每个势力和人物都要有独特的差异化特征，不能重复
 
 ## 04_地理与环境
 地图/场景设定、环境特色
@@ -118,13 +130,25 @@ Core blurb principle:
 ### Golden First Three Chapters Rule
 - Chapter 1: throw the core conflict immediately; no large background dump
 - Chapter 2: show the core edge / ability / leverage that answers Chapter 1's pressure
-- Chapter 3: establish the first concrete short-term goal that gives readers a reason to continue`
+- Chapter 3: establish the first concrete short-term goal that gives readers a reason to continue
+
+### Critical Constraint (Must Follow)
+- Each volume must maintain the SAME format and detail level as Volume 1
+- Each volume must include: core conflict (main/confounder/deep), chapter structure table, key turning points table, payoff goal
+- Do NOT simplify or omit any part due to later volume order
+- All volumes must have identical structure and detail density`
       : `卷纲规划，每卷包含：卷名、章节范围、核心冲突、关键转折、收益目标
 
 ### 黄金三章法则（前三章必须遵循）
 - 第1章：抛出核心冲突（主角立即面临困境/危机/选择），禁止大段背景灌输
 - 第2章：展示金手指/核心能力（主角如何应对第1章的困境），让读者看到爽点预期
-- 第3章：明确短期目标（主角确立第一个具体可达成的目标），给读者追读理由`;
+- 第3章：明确短期目标（主角确立第一个具体可达成的目标），给读者追读理由
+
+### 关键约束（必须遵守）
+- 每卷必须与第一卷保持**同等详细程度**
+- 每卷必须包含完整格式：核心冲突（明线/暗线/深层）、章节结构表、关键转折节点、收益目标
+- 不得因卷序靠后而简化或省略任何部分
+- 所有卷的结构必须完全统一，格式一致`;
 
     const bookRulesPrompt = resolvedLanguage === "en"
       ? `Generate book_rules.md as YAML frontmatter plus narrative guidance:
