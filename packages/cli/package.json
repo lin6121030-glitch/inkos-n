@@ -1,6 +1,6 @@
 {
   "name": "inkos-n",
-  "version": "1.2.3",
+  "version": "1.2.2",
   "description": "InkOS 定制版 - 大纲契约机制",
   "keywords": [
     "ai-novel-writing",
@@ -43,8 +43,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "inkos-n-core": "1.2.3",
-    "inkos-n-studio": "1.2.3",
+    "inkos-n-core": "workspace:*",
+    "inkos-n-studio": "workspace:*",
     "commander": "^13.0.0",
     "dotenv": "^16.4.0",
     "epub-gen-memory": "^1.0.10",
