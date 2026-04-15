@@ -1,6 +1,6 @@
 {
   "name": "inkos-n-studio",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "InkOS-N Studio — 大纲契约机制定制版 Web 工作台",
   "type": "module",
   "main": "dist/api/index.js",
