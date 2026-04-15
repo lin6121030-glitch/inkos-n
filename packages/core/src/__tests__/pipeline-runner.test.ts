@@ -218,6 +218,7 @@ describe("PipelineRunner", () => {
     vi.spyOn(StateValidatorAgent.prototype, "validate").mockResolvedValue({
       warnings: [],
       passed: true,
+      severity: "pass" as any,
     });
   });
 
@@ -2357,11 +2358,14 @@ describe("PipelineRunner", () => {
         warnings: [{
           category: "unsupported_change",
           description: "状态写成铜牌未带在身上，但正文明确写了怀里的铜牌。",
+          severity: "fail" as any,
         }],
+        severity: "fail" as any,
       })
       .mockResolvedValueOnce({
         passed: true,
         warnings: [],
+        severity: "pass" as any,
       });
 
     const result = await runner.writeNextChapter(bookId);
@@ -2431,14 +2435,18 @@ describe("PipelineRunner", () => {
         warnings: [{
           category: "unsupported_change",
           description: "settler 把铜牌写没了，但正文仍然明确带在身上。",
+          severity: "fail" as any,
         }],
+        severity: "fail" as any,
       })
       .mockResolvedValueOnce({
         passed: false,
         warnings: [{
           category: "unsupported_change",
           description: "重试后仍然把铜牌写没了。",
+          severity: "fail" as any,
         }],
+        severity: "fail" as any,
       });
 
     const result = await runner.writeNextChapter(bookId);
@@ -2537,6 +2545,7 @@ describe("PipelineRunner", () => {
     vi.spyOn(StateValidatorAgent.prototype, "validate").mockResolvedValue({
       passed: true,
       warnings: [],
+      severity: "pass" as any,
     });
 
     const result = await (
@@ -2623,6 +2632,7 @@ describe("PipelineRunner", () => {
     vi.spyOn(StateValidatorAgent.prototype, "validate").mockResolvedValue({
       passed: true,
       warnings: [],
+      severity: "pass" as any,
     });
 
     const result = await (

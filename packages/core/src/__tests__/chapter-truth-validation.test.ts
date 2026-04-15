@@ -25,6 +25,7 @@ function createValidationResult(overrides?: Partial<ValidationResult>): Validati
   return {
     passed: true,
     warnings: [],
+    severity: "pass" as any,
     ...overrides,
   };
 }
@@ -72,6 +73,7 @@ describe("validateChapterTruthPersistence", () => {
           warnings: [{
             category: "unsupported_change",
             description: "正文写铜牌在怀里，但 state 说未携带。",
+            severity: "fail" as any,
           }],
         }))
         .mockResolvedValueOnce(createValidationResult()),
@@ -133,6 +135,7 @@ describe("validateChapterTruthPersistence", () => {
           warnings: [{
             category: "unsupported_change",
             description: "第一次校验失败。",
+            severity: "fail" as any,
           }],
         }))
         .mockResolvedValueOnce(createValidationResult({
@@ -140,6 +143,7 @@ describe("validateChapterTruthPersistence", () => {
           warnings: [{
             category: "unsupported_change",
             description: "重试后仍然失败。",
+            severity: "fail" as any,
           }],
         })),
     };

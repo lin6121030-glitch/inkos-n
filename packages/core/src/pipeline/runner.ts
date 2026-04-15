@@ -1403,7 +1403,15 @@ export class PipelineRunner {
       }
     }
 
-    const resolvedStatus = chapterStatus ?? (auditResult.passed ? "ready-for-review" : "audit-failed");
+    // 重新计算passed状态，包含所有类型的问题
+    const allIssues = auditResult.issues;
+    const warningCount = allIssues.filter(issue => issue.severity === "warning").length;
+    const hasCritical = allIssues.some(issue => issue.severity === "critical");
+    
+    // 如果有critical问题或者warning数量>=2，则审计失败
+    const finalPassed = auditResult.passed && !hasCritical && warningCount <= 1;
+
+    const resolvedStatus = chapterStatus ?? (finalPassed ? "ready-for-review" : "audit-failed");
     await persistChapterArtifacts({
       chapterNumber,
       chapterTitle: persistenceOutput.title,
@@ -1462,7 +1470,7 @@ export class PipelineRunner {
     await this.emitWebhook("pipeline-complete", bookId, chapterNumber, {
       title: persistenceOutput.title,
       wordCount: finalWordCount,
-      passed: auditResult.passed,
+      passed: finalPassed,
       revised,
       status: resolvedStatus,
     });

@@ -261,6 +261,7 @@ describe("PipelineRunner structured-state memory sync", () => {
     vi.spyOn(StateValidatorAgent.prototype, "validate").mockResolvedValue({
       warnings: [],
       passed: true,
+      severity: "pass" as any,
     });
     vi.spyOn(WriterAgent.prototype, "saveChapter").mockImplementation(async function (
       this: InstanceType<typeof WriterAgent>,

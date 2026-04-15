@@ -67,10 +67,10 @@ Major factions and important supporting characters (for each: name, identity, mo
 
 ## Important Requirements
 - The brief only provides core factions and main characters; you must **expand** to create a richer world
-- Beyond the core factions from the brief, add: 2-3 top-tier factions, 3-5 secondary factions, 5-10 secondary groups/organizations
-- Beyond the main character from the brief, add: 3-5 core antagonists, 5-10 core supporting characters, 20-30 functional characters
-- Beyond the core locations from the brief, add: 5-10 new locations/environments
-- Each faction, character, and location must have unique distinguishing features, no duplicates
+- Beyond the core factions from the brief, add: 3-5 top-tier factions, 5-10 secondary factions, 8-20 secondary groups/organizations
+- Beyond the main character from the brief, add: 5-10 core antagonists, 8-20 core supporting characters, 20-40 functional characters
+- Beyond the core locations from the brief, add: 10-30 new locations/environments
+- Each faction and character must have unique distinguishing features, clearly describe the relationship/utility to the protagonist, no duplicates. Locations must align with story development and have unique features, no duplicates
 
 ## 04_Geography_and_Environment
 Map / scene design and environmental traits
@@ -100,10 +100,10 @@ Core blurb principle:
 
 ## 重要要求
 - 简报只提供了核心势力和主要人物，你必须**扩展**出更丰富的世界观
-- 除了简报给出的势力外，必须添加：2-3个顶级势力、3-5个次级势力、5-10个次级组织/群体
-- 除了简报给出的主角外，必须添加：3-5个核心对手、5-10个核心配角、20-30个功能性配角
-- 除了简报给出的地理位置，必须添加：5-10个新的地理与环境
-- 每个势力、人物和地理与环境都要有独特的差异化特征，不能重复
+- 除了简报给出的势力外，必须添加：3-5个顶级势力、5-10个次级势力、8-20个次级组织/群体
+- 除了简报给出的主角外，必须添加：5-10个核心对手、8-20个核心配角、20-40个功能性配角
+- 除了简报给出的地理位置，必须添加：10-30个新的地理与环境
+- 每个势力、人物都要有独特的差异化特征，要说跟主角的利用关系，不能重复，地理与环境必须配合故事的发展并且有独特的差异化特征，不能重复
 
 ## 04_地理与环境
 地图/场景设定、环境特色

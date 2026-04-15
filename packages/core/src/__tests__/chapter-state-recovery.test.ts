@@ -35,6 +35,7 @@ function createValidationWarning(
   return {
     category: overrides.category ?? "current-state",
     description: overrides.description ?? "铜牌位置与正文矛盾",
+    severity: overrides.severity ?? "fail" as any,
   };
 }
 
@@ -44,6 +45,7 @@ function createValidationResult(
   return {
     passed: overrides.passed ?? false,
     warnings: overrides.warnings ?? [createValidationWarning()],
+    severity: overrides.severity ?? "fail" as any,
   };
 }
 
