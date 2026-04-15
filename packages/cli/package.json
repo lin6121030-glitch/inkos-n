@@ -43,8 +43,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "inkos-n-core": "1.2.4",
-    "inkos-n-studio": "1.2.4",
+    "inkos-n-core": "workspace:*",
+    "inkos-n-studio": "workspace:*",
     "commander": "^13.0.0",
     "dotenv": "^16.4.0",
     "epub-gen-memory": "^1.0.10",
