@@ -2,7 +2,7 @@ import { Command } from "commander";
 import {
   processProjectInteractionInput,
   type InteractionRuntimeTools,
-} from "@actalk/inkos-core";
+} from "inkos-n-core";
 import { createInteractionTools } from "../tui/tools.js";
 
 export interface InteractCommandHooks {

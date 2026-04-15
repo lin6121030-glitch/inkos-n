@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { ConsolidatorAgent } from "@actalk/inkos-core";
+import { ConsolidatorAgent } from "inkos-n-core";
 import { loadConfig, buildPipelineConfig, findProjectRoot, resolveBookId, log, logError } from "../utils.js";
 
 export const consolidateCommand = new Command("consolidate")
@@ -19,7 +19,7 @@ export const consolidateCommand = new Command("consolidate")
         projectRoot: root,
       });
 
-      const { StateManager } = await import("@actalk/inkos-core");
+      const { StateManager } = await import("inkos-n-core");
       const state = new StateManager(root);
       const bookDir = state.bookDir(bookId);
 

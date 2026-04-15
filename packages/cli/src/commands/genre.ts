@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { listAvailableGenres, readGenreProfile, getBuiltinGenresDir } from "@actalk/inkos-core";
+import { listAvailableGenres, readGenreProfile, getBuiltinGenresDir } from "inkos-n-core";
 import { findProjectRoot, log, logError } from "../utils.js";
 
 export const genreCommand = new Command("genre")

@@ -5,7 +5,7 @@ import {
   loadDetectionHistory,
   analyzeDetectionInsights,
   type DetectionConfig,
-} from "@actalk/inkos-core";
+} from "inkos-n-core";
 import { loadConfig, findProjectRoot, resolveBookId, log, logError } from "../utils.js";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";

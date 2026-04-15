@@ -1,4 +1,4 @@
-import { formatLengthCount, resolveLengthCountingMode } from "@actalk/inkos-core";
+import { formatLengthCount, resolveLengthCountingMode } from "inkos-n-core";
 
 export type CliLanguage = "zh" | "en";
 

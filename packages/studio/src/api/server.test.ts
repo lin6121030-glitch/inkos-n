@@ -30,7 +30,7 @@ const logger = {
   error: vi.fn(),
 };
 
-vi.mock("@actalk/inkos-core", () => {
+vi.mock("inkos-n-core", () => {
   class MockStateManager {
     constructor(private readonly root: string) {}
 

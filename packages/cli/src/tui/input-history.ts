@@ -1,4 +1,4 @@
-import type { InteractionMessage } from "@actalk/inkos-core";
+import type { InteractionMessage } from "inkos-n-core";
 
 export interface InputHistoryState {
   readonly cursor: number | null;

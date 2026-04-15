@@ -79,7 +79,7 @@ export const doctorCommand = new Command("doctor")
       const { config: loadDotenv } = await import("dotenv");
       loadDotenv({ path: GLOBAL_ENV_PATH });
       loadDotenv({ path: join(root, ".env"), override: true });
-      const { isApiKeyOptionalForEndpoint } = await import("@actalk/inkos-core");
+      const { isApiKeyOptionalForEndpoint } = await import("inkos-n-core");
       let provider = process.env.INKOS_LLM_PROVIDER;
       let baseUrl = process.env.INKOS_LLM_BASE_URL;
       try {
@@ -105,7 +105,7 @@ export const doctorCommand = new Command("doctor")
 
     // 5. Check books directory
     try {
-      const { StateManager } = await import("@actalk/inkos-core");
+      const { StateManager } = await import("inkos-n-core");
       const state = new StateManager(root);
       const books = await state.listBooks();
       checks.push({
@@ -122,7 +122,7 @@ export const doctorCommand = new Command("doctor")
       const { existsSync } = await import("node:fs");
       const hasStructuredState = existsSync(join(root, "books"));
       if (hasStructuredState) {
-        const { StateManager } = await import("@actalk/inkos-core");
+        const { StateManager } = await import("inkos-n-core");
         const sm = new StateManager(root);
         const bookIds = await sm.listBooks();
         let legacyCount = 0;
@@ -149,7 +149,7 @@ export const doctorCommand = new Command("doctor")
 
     // 6. API connectivity test
     try {
-      const { createLLMClient, chatCompletion, LLMConfigSchema, isApiKeyOptionalForEndpoint } = await import("@actalk/inkos-core");
+      const { createLLMClient, chatCompletion, LLMConfigSchema, isApiKeyOptionalForEndpoint } = await import("inkos-n-core");
       const { loadConfig } = await import("../utils.js");
 
       let llmConfig;

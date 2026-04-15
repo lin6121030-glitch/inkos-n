@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { access, readFile, rm } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { join, resolve } from "node:path";
-import { PipelineRunner, StateManager, type BookConfig } from "@actalk/inkos-core";
+import { PipelineRunner, StateManager, type BookConfig } from "inkos-n-core";
 import {
   formatBookCreateCreated,
   formatBookCreateCreating,

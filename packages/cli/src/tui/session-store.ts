@@ -3,4 +3,4 @@ export {
   loadProjectSession,
   persistProjectSession,
   resolveSessionActiveBook,
-} from "@actalk/inkos-core";
+} from "inkos-n-core";

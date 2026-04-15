@@ -59,16 +59,16 @@ describe.sequential("publish packaging", () => {
       );
       await writeFile(
         join(tempCoreDir, "package.json"),
-        `${JSON.stringify({ name: "@actalk/inkos-core", version: "0.4.6" }, null, 2)}\n`,
+        `${JSON.stringify({ name: "inkos-n-core", version: "0.4.6" }, null, 2)}\n`,
       );
       await writeFile(
         join(tempCliDir, "package.json"),
         `${JSON.stringify(
           {
-            name: "@actalk/inkos",
+            name: "inkos-n",
             version: "0.4.6",
             dependencies: {
-              "@actalk/inkos-core": "workspace:*",
+              "inkos-n-core": "workspace:*",
               commander: "^13.0.0",
             },
           },
@@ -94,7 +94,7 @@ describe.sequential("publish packaging", () => {
       expect(rootPackageJson.version).toBe("0.4.8-canary.7");
       expect(corePackageJson.version).toBe("0.4.8-canary.7");
       expect(cliPackageJson.version).toBe("0.4.8-canary.7");
-      expect(cliPackageJson.dependencies["@actalk/inkos-core"]).toBe("0.4.8-canary.7");
+      expect(cliPackageJson.dependencies["inkos-n-core"]).toBe("0.4.8-canary.7");
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -103,8 +103,8 @@ describe.sequential("publish packaging", () => {
   it("keeps source CLI dependencies linked through the workspace protocol", async () => {
     const cliPackageJson = await sourceCliPackageJsonPromise;
 
-    expect(cliPackageJson.dependencies["@actalk/inkos-core"]).toBe("workspace:*");
-    expect(cliPackageJson.dependencies["@actalk/inkos-studio"]).toBe("workspace:*");
+    expect(cliPackageJson.dependencies["inkos-n-core"]).toBe("workspace:*");
+    expect(cliPackageJson.dependencies["inkos-n-studio"]).toBe("workspace:*");
   });
 
   it("verifies publishable manifests before npm publish runs", async () => {
@@ -137,16 +137,16 @@ describe.sequential("publish packaging", () => {
       );
       await writeFile(
         join(tempCoreDir, "package.json"),
-        `${JSON.stringify({ name: "@actalk/inkos-core", version: "0.5.1" }, null, 2)}\n`,
+        `${JSON.stringify({ name: "inkos-n-core", version: "0.5.1" }, null, 2)}\n`,
       );
       await writeFile(
         join(tempCliDir, "package.json"),
         `${JSON.stringify(
           {
-            name: "@actalk/inkos",
+            name: "inkos-n",
             version: "0.5.1",
             dependencies: {
-              "@actalk/inkos-core": "workspace:*",
+              "inkos-n-core": "workspace:*",
               commander: "^13.0.0",
             },
           },
@@ -187,16 +187,16 @@ describe.sequential("publish packaging", () => {
       );
       await writeFile(
         join(tempCoreDir, "package.json"),
-        `${JSON.stringify({ name: "@actalk/inkos-core", version: "0.5.1" }, null, 2)}\n`,
+        `${JSON.stringify({ name: "inkos-n-core", version: "0.5.1" }, null, 2)}\n`,
       );
       await writeFile(
         join(tempCliDir, "package.json"),
         `${JSON.stringify(
           {
-            name: "@actalk/inkos",
+            name: "inkos-n",
             version: "0.5.1",
             dependencies: {
-              "@actalk/inkos-core": "workspace:0.5.0",
+              "inkos-n-core": "workspace:0.5.0",
             },
           },
           null,
@@ -230,8 +230,8 @@ describe.sequential("publish packaging", () => {
       );
       const studioPackageJson = await sourceStudioPackageJsonPromise;
 
-      expect(packedPackageJson.dependencies["@actalk/inkos-core"]).toBe(corePackageJson.version);
-      expect(packedPackageJson.dependencies["@actalk/inkos-studio"]).toBe(studioPackageJson.version);
+      expect(packedPackageJson.dependencies["inkos-n-core"]).toBe(corePackageJson.version);
+      expect(packedPackageJson.dependencies["inkos-n-studio"]).toBe(studioPackageJson.version);
     } finally {
       await rm(packDir, { recursive: true, force: true });
     }

@@ -4,7 +4,7 @@ import {
   appendInteractionMessage,
   processProjectInteractionInput,
   type InteractionRuntimeTools,
-} from "@actalk/inkos-core";
+} from "inkos-n-core";
 import { render } from "ink";
 import React from "react";
 import { InkTuiApp } from "./dashboard.js";

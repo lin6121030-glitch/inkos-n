@@ -10,12 +10,6 @@ importers:
 
   packages/cli:
     dependencies:
-      '@actalk/inkos-core':
-        specifier: workspace:*
-        version: link:../core
-      '@actalk/inkos-studio':
-        specifier: workspace:*
-        version: link:../studio
       commander:
         specifier: ^13.0.0
         version: 13.1.0
@@ -31,6 +25,12 @@ importers:
       ink-text-input:
         specifier: ^6.0.0
         version: 6.0.0(ink@7.0.0(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
+      inkos-n-core:
+        specifier: workspace:*
+        version: link:../core
+      inkos-n-studio:
+        specifier: workspace:*
+        version: link:../studio
       marked:
         specifier: ^15.0.12
         version: 15.0.12
@@ -90,9 +90,6 @@ importers:
 
   packages/studio:
     dependencies:
-      '@actalk/inkos-core':
-        specifier: workspace:*
-        version: link:../core
       '@base-ui/react':
         specifier: ^1.3.0
         version: 1.3.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -105,6 +102,9 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.8
+      inkos-n-core:
+        specifier: workspace:*
+        version: link:../core
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@19.2.4)

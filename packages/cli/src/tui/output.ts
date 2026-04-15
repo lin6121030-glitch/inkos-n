@@ -1,4 +1,4 @@
-import type { AutomationMode, ExecutionStatus, InteractionIntentType } from "@actalk/inkos-core";
+import type { AutomationMode, ExecutionStatus, InteractionIntentType } from "inkos-n-core";
 import { formatModeLabel, getTuiCopy, resolveTuiLocale, type TuiLocale } from "./i18n.js";
 
 export function formatTuiResult(params: {
