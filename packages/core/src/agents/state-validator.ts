@@ -13,14 +13,23 @@ export interface ValidationWarning {
   severity: ValidationSeverity;
 }
 
+export interface FixSuggestion {
+  category: string;
+  issue: string;
+  suggestion: string;
+  priority: "high" | "medium" | "low";
+  autoFixable: boolean;
+}
+
 export interface ValidationResult {
   warnings: ValidationWarning[];
   passed: boolean;
   severity: ValidationSeverity;
+  fixSuggestions?: FixSuggestion[];
   details?: {
-    state: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
-    hooks: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
-    timeline: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
+    state: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
+    hooks: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
+    timeline: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
   };
 }
 
@@ -82,9 +91,9 @@ export class StateValidatorAgent extends BaseAgent {
     hooksDiff: string | null,
     language: "zh" | "en"
   ): Promise<{
-    state: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
-    hooks: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
-    timeline: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
+    state: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
+    hooks: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
+    timeline: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
   }> {
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { 
@@ -105,34 +114,34 @@ export class StateValidatorAgent extends BaseAgent {
     messages.push({ role: "assistant", content: contextResponse.content });
 
     // 第2轮：状态验证
-    let stateResult: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
+    let stateResult: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
     try {
       stateResult = await this.validateStateRound(messages, stateDiff, language);
       messages.push({ role: "assistant", content: "状态验证完成" });
     } catch (error) {
       this.log?.warn(`State Round failed: ${error}`);
-      stateResult = { passed: true, severity: ValidationSeverity.PASS, warnings: [] };
+      stateResult = { passed: true, severity: ValidationSeverity.PASS, warnings: [], fixSuggestions: [] };
       messages.push({ role: "assistant", content: "状态验证失败" });
     }
 
     // 第3轮：伏笔验证
-    let hookResult: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
+    let hookResult: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
     try {
       hookResult = await this.validateHooksRound(messages, hooksDiff, language);
       messages.push({ role: "assistant", content: "伏笔验证完成" });
     } catch (error) {
       this.log?.warn(`Hooks Round failed: ${error}`);
-      hookResult = { passed: true, severity: ValidationSeverity.PASS, warnings: [] };
+      hookResult = { passed: true, severity: ValidationSeverity.PASS, warnings: [], fixSuggestions: [] };
       messages.push({ role: "assistant", content: "伏笔验证失败" });
     }
 
     // 第4轮：时间线验证
-    let timelineResult: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
+    let timelineResult: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
     try {
       timelineResult = await this.validateTimelineRound(messages, chapterContent, language);
     } catch (error) {
       this.log?.warn(`Timeline Round failed: ${error}`);
-      timelineResult = { passed: false, severity: ValidationSeverity.FAIL, warnings: [] };
+      timelineResult = { passed: false, severity: ValidationSeverity.FAIL, warnings: [], fixSuggestions: [] };
     }
 
     return {
@@ -210,9 +219,9 @@ ${chapterContent.slice(0, 2000)}...
     messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
     stateDiff: string | null,
     language: "zh" | "en"
-  ): Promise<{ passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] }> {
+  ): Promise<{ passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] }> {
     if (!stateDiff) {
-      return { passed: true, severity: ValidationSeverity.PASS, warnings: [] };
+      return { passed: true, severity: ValidationSeverity.PASS, warnings: [], fixSuggestions: [] };
     }
 
     const statePrompt = language === "en"
@@ -249,16 +258,22 @@ ${stateDiff}
     
     const response = await this.chat(messages, { temperature: 0.1, maxTokens: 2000 });
     
-    return this.parseRoundResult(response.content, "state");
+    const result = this.parseRoundResult(response.content, "state");
+    return {
+      passed: result.passed,
+      severity: result.severity,
+      warnings: result.warnings,
+      fixSuggestions: result.fixSuggestions
+    };
   }
 
   private async validateHooksRound(
     messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
     hooksDiff: string | null,
     language: "zh" | "en"
-  ): Promise<{ passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] }> {
+  ): Promise<{ passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] }> {
     if (!hooksDiff) {
-      return { passed: true, severity: ValidationSeverity.PASS, warnings: [] };
+      return { passed: true, severity: ValidationSeverity.PASS, warnings: [], fixSuggestions: [] };
     }
 
     const hooksPrompt = language === "en"
@@ -295,14 +310,20 @@ ${hooksDiff}
     
     const response = await this.chat(messages, { temperature: 0.1, maxTokens: 2000 });
     
-    return this.parseRoundResult(response.content, "hooks");
+    const result = this.parseRoundResult(response.content, "hooks");
+    return {
+      passed: result.passed,
+      severity: result.severity,
+      warnings: result.warnings,
+      fixSuggestions: result.fixSuggestions
+    };
   }
 
   private async validateTimelineRound(
     messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
     chapterContent: string,
     language: "zh" | "en"
-  ): Promise<{ passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] }> {
+  ): Promise<{ passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] }> {
     const timelinePrompt = language === "en"
       ? `Now validate TIMELINE CONSISTENCY:
 
@@ -338,13 +359,20 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
     
     const response = await this.chat(messages, { temperature: 0.1, maxTokens: 2000 });
     
-    return this.parseRoundResult(response.content, "timeline");
+    const result = this.parseRoundResult(response.content, "timeline");
+    return {
+      passed: result.passed,
+      severity: result.severity,
+      warnings: result.warnings,
+      fixSuggestions: result.fixSuggestions
+    };
   }
 
   private parseRoundResult(content: string, category: string): { 
     passed: boolean; 
     severity: ValidationSeverity; 
-    warnings: ValidationWarning[] 
+    warnings: ValidationWarning[];
+    fixSuggestions: FixSuggestion[];
   } {
     // 添加调试日志：显示LLM原始输出
     this.log?.info(`[state-validator] [DEBUG] ${category} Round LLM原始输出:`);
@@ -379,8 +407,11 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
       if (line.match(/^think|thinking|analysis|reasoning/i)) {
         continue;
       }
-      verdictLine = upperLine;
-      break;
+
+      if (upperLine.startsWith("VERDICT_")) {
+        verdictLine = upperLine;
+        break;
+      }
     }
     
     if (!verdictLine) {
@@ -408,6 +439,8 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
     }
 
     const warnings: ValidationWarning[] = [];
+    const fixSuggestions: FixSuggestion[] = [];
+    let inFixSection = false;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!.trim();
       if (!line) continue; // 跳过空行
@@ -416,29 +449,67 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
         continue;
       }
 
-      const categoryMatch = line.match(/^\[([^\]]+)\]\s*(.+)$/);
-      if (categoryMatch) {
-        warnings.push({
-          category: categoryMatch[1]!.trim(),
-          description: categoryMatch[2]!.trim(),
-          severity: severity
-        });
-      } else if (line.length > 5) {
-        warnings.push({
-          category: category,
-          description: line,
-          severity: severity
-        });
+      const suggestionMatch = line.match(/^\[([^\]]+)\]\s*(修正建议|建议修正):\s*(.+)$/)
+      if (suggestionMatch) {
+        inFixSection = true;
+        continue;
       }
+      // Handle warnings
+      const warningMatch = line.match(/^\[([^\]]+)\]\s*(WARNING|CONCERN|PASS|FAIL):\s*(.+)$/);
+      if (warningMatch) {
+        // Keep the full description including fix suggestions
+        let description = warningMatch[3]!.trim();
+        // Don't separate fix suggestions, keep them in description
+       description = description.replace(/\s+(?:修正建议|建议修正)[\s\S]*$/, '').trim();
+        warnings.push({
+          category: warningMatch[1]!.trim(),
+          description: description,
+          severity: this.mapSeverity(warningMatch[2])
+        });
+        continue;
+      }
+      
+
+      // 3. 如果在修正建议部分，解析编号列表项
+      if (inFixSection) {
+        const fixMatch = line.match(/^(\d+)\.\s+\*\*(.+?)\*\*：\s*(.*)$/);
+        if (fixMatch) {
+          fixSuggestions.push({
+            category: fixMatch[1]!.trim(),
+            issue: fixMatch[3]!.trim(),
+            suggestion: fixMatch[3]!.trim(),  // 或者需要进一步解析
+            priority: "medium",  // 默认值
+            autoFixable: true    // 默认值
+          });
+        }
+        // 如果修正建议的描述跨行，可根据需要在此处追加内容（你的示例中每行完整，暂不处理）
+        continue;
+      }
+    
     }
 
-    return { passed, severity, warnings };
+    return { passed, severity, warnings, fixSuggestions };
+  }
+
+    private mapSeverity(severityStr: string): ValidationSeverity {
+    switch (severityStr.toUpperCase()) {
+      case "FAIL":
+        return ValidationSeverity.FAIL;
+      case "WARNING":
+        return ValidationSeverity.WARNING;
+      case "CONCERN":
+        return ValidationSeverity.CONCERN;
+      case "PASS":
+        return ValidationSeverity.PASS;
+      default:
+        return ValidationSeverity.WARNING; // 默认值
+    }
   }
 
   private combineValidationResults(results: {
-    state: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
-    hooks: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
-    timeline: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
+    state: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
+    hooks: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
+    timeline: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
   }): ValidationResult {
     // 添加调试日志：分析各轮验证结果
     this.log?.info(`[state-validator] [DEBUG] 多轮验证结果分析:`);
@@ -479,14 +550,31 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
     this.log?.info(`[state-validator] [DEBUG] Hooks Round warnings详情:`);
     results.hooks.warnings.forEach(w => this.log?.info(`[state-validator] [DEBUG]   [${w.severity}] [${w.category}] ${w.description}`));
     
-    this.log?.info(`[state-validator] [DEBUG] Timeline Round warnings详情:`);
+    this.log?.info(`[state-validator] [DEBUG] Timeline Round warnings details:`);
     results.timeline.warnings.forEach(w => this.log?.info(`[state-validator] [DEBUG]   [${w.severity}] [${w.category}] ${w.description}`));
 
-    // 合并所有警告，但过滤掉PASS项（PASS不是问题，不需要传递）
+    // Log fix suggestions
+    this.log?.info(`[state-validator] [DEBUG] State Round fix suggestions: ${results.state.fixSuggestions.length}`);
+    results.state.fixSuggestions.forEach(f => this.log?.info(`[state-validator] [DEBUG]   [${f.category}] ${f.suggestion}`));
+    
+    this.log?.info(`[state-validator] [DEBUG] Hooks Round fix suggestions: ${results.hooks.fixSuggestions.length}`);
+    results.hooks.fixSuggestions.forEach(f => this.log?.info(`[state-validator] [DEBUG]   [${f.category}] ${f.suggestion}`));
+    
+    this.log?.info(`[state-validator] [DEBUG] Timeline Round fix suggestions: ${results.timeline.fixSuggestions.length}`);
+    results.timeline.fixSuggestions.forEach(f => this.log?.info(`[state-validator] [DEBUG]   [${f.category}] ${f.suggestion}`));
+
+    // Merge all warnings, but filter out PASS items (PASS is not a problem, no need to pass)
     const allWarnings = [
       ...results.state.warnings.filter(w => w.severity !== ValidationSeverity.PASS),
       ...results.hooks.warnings.filter(w => w.severity !== ValidationSeverity.PASS),
       ...results.timeline.warnings.filter(w => w.severity !== ValidationSeverity.PASS)
+    ];
+
+    // Merge all fix suggestions
+    const allFixSuggestions = [
+      ...results.state.fixSuggestions,
+      ...results.hooks.fixSuggestions,
+      ...results.timeline.fixSuggestions
     ];
     
     this.log?.info(`[state-validator] [DEBUG] 过滤PASS项后的warnings数量: ${allWarnings.length}`);
@@ -511,6 +599,7 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
       passed: finalPassed,
       severity: overallSeverity,
       warnings: allWarnings,
+      fixSuggestions: allFixSuggestions,
       details: results
     };
   }
