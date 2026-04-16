@@ -90,7 +90,7 @@ export interface WriteChapterOutput {
   readonly postWriteErrors: ReadonlyArray<PostWriteViolation>;
   readonly postWriteWarnings: ReadonlyArray<PostWriteViolation>;
   readonly hookHealthIssues?: ReadonlyArray<{
-    readonly severity: "critical" | "warning" | "info";
+    readonly severity: "critical" | "warning" | "concern" | "info";
     readonly category: string;
     readonly description: string;
     readonly suggestion: string;

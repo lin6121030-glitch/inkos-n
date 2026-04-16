@@ -22,7 +22,7 @@ export interface AuditResult {
 }
 
 export interface AuditIssue {
-  readonly severity: "critical" | "warning" | "info";
+  readonly severity: "critical" | "warning" | "concern" | "info";
   readonly category: string;
   readonly description: string;
   readonly suggestion: string;

@@ -154,34 +154,20 @@ REQUIREMENTS:
 - Provide validation results directly
 - Use concise verdict format
 
-VALIDATION LEVELS:
-- FAIL: Only for HARD contradictions (death + acting, time backward, etc.)
-- WARNING: Minor issues (±10% differences, missing reasonable details)
-- CONCERN: Moderate issues (significant but acceptable deviations)
-- PASS: Perfect validation
+VALIDATION LEVEL CRITERIA:
+- FAIL: Hard contradictions (character dies but continues acting, time flows backward, location changes without transition)
+- WARNING: Significant issues that affect story logic (numerical contradictions, serious state-text mismatches, critical hook management errors)
+- CONCERN: Minor issues that don't affect main plot (reasonable inferences, missing details, minor inconsistencies)
+- PASS: Correct operations (appropriate state updates, proper hook progression, sufficient text support)
+
+Please judge each specific issue's severity based on its actual impact and choose the most appropriate level.
 
 OUTPUT FORMAT:
 First line MUST be exactly: PASS or WARNING or CONCERN or FAIL
-Following lines: [category] description (if issues)
+Following lines: [category] [severity] description (if issues)
+Severity options: PASS, WARNING, CONCERN, FAIL
 
-Focus on validation, provide results directly.
-
-Hard contradictions (FAIL only):
-- Character dies but continues acting
-- Time flows backward or impossible jumps  
-- Location changes without transition
-- Hooks disappear without resolution marking
-- Complete logical contradictions
-
-Minor issues (WARNING):
-- Slight numerical differences (±10%)
-- Missing but reasonable details
-- Slightly ahead-of-text inferences
-
-Moderate issues (CONCERN):
-- Significant but acceptable deviations
-- Missing important details
-- Reasonable extrapolations without direct text support`
+Focus on validation, provide results directly.`
       : `重要指令：你是小说连续性验证器，需要多轮验证内容。
 
 输出要求：
@@ -189,35 +175,27 @@ Moderate issues (CONCERN):
 - 提供结构化的验证结果
 - 包含必要的分析依据
 
-验证等级：
-- FAIL：仅硬矛盾（死亡+活动、时间倒流等）
-- WARNING：轻微问题（±10%差异、缺失合理细节）
-- CONCERN：中等问题（显著但可接受的偏差）
-- PASS：完美验证
+验证等级判断标准：
+- FAIL：硬矛盾（角色死亡但继续活动、时间倒流、位置无过渡、伏笔消失无解决标记、完全逻辑矛盾等）
+- WARNING：显著问题（影响故事逻辑的重要错误，如数值矛盾、状态与文本不符、伏笔管理错误、缺失细节、时间推断过度等）
+- CONCERN：轻微问题（不影响主线的小偏差，如合理推断、细节缺失、微小偏差、叙事支持、建议等）
+- PASS：正确操作（状态更新合理、伏笔推进正确、文本依据充分、时间线一致、事件逻辑清晰等）
+
+请根据具体问题内容，自行判断其严重程度，选择最合适的级别。
 
 输出格式：
 第一行必须是：PASS 或 WARNING 或 CONCERN 或 FAIL
-后续行：[类别] 详细描述（支持多行分析）
+后续行：[类别] [严重程度] 详细描述（支持多行分析）
+严重程度选项：PASS、WARNING、CONCERN、FAIL
 可选类别：[分析]、[依据]、[建议]、[伏笔内容]、[数值矛盾]等
 
-请专注验证，直接给出结果。
+示例：
+WARNING
+[数值矛盾] WARNING: 炼气三层进度23%→31%，单章内增长8%，无修炼行为描写
+[叙事支持] CONCERN: "警觉不安"情绪有叙事支持，直播被中断
+[伏笔升级] PASS: H005"神秘组织特别针对小组"有章节暗示（天机阁永久封禁），升级合理
 
-硬矛盾（仅FAIL）：
-- 角色死亡但继续活动
-- 时间倒流或不可能跳跃
-- 位置变化无过渡
-- 伏笔消失无解决标记
-- 完全逻辑矛盾
-
-轻微问题（WARNING）：
-- 轻微数字差异（±10%）
-- 缺失但合理的细节
-- 略微超前的文本推断
-
-中等问题（CONCERN）：
-- 显著但可接受的偏差
-- 缺失重要细节
-- 合理推断但无直接文本支持`;
+请专注验证，直接给出结果。`;
   }
 
   private getContextPrompt(chapterNumber: number, chapterContent: string): string {
@@ -359,26 +337,37 @@ Output format: PASS | WARNING | CONCERN | FAIL`
     severity: ValidationSeverity; 
     warnings: ValidationWarning[] 
   } {
-    // 首先过滤掉<THINK>标签内容（支持大小写）
-    const filteredContent = content.replace(/<THINK>[\s\S]*?<\/THINK>/gi, '').trim();
+    // Enhanced THINK tag filtering - handle multiple variations
+    let filteredContent = content
+      .replace(/<THINK>[\s\S]*?<\/THINK>/gi, '') // Complete THINK blocks
+      .replace(/<THINK>[\s\S]*/gi, '') // Incomplete THINK blocks (no closing tag)
+      .replace(/[\s\S]*?<\/THINK>/gi, '') // Incomplete THINK blocks (no opening tag)
+      .replace(/<think>[\s\S]*?<\/think>/gi, '') // Lowercase variant
+      .replace(/<Think>[\s\S]*?<\/Think>/gi, '') // Mixed case variant
+      .replace(/<THINK>.*/gi, '') // Any line starting with <THINK>
+      .replace(/.*<\/THINK>/gi, '') // Any line ending with </THINK>
+      .trim();
     
-    const trimmed = filteredContent.trim();
-    if (!trimmed) {
-      throw new Error("LLM returned empty response");
-    }
-
+    const trimmed = filteredContent.replace(/\n{3,}/g, "\n\n").trim();
     const lines = trimmed.split("\n").map(line => line.trim()).filter(Boolean);
     if (lines.length === 0) {
       throw new Error("LLM returned empty response");
     }
 
-    // Find the first line that doesn't contain THINK tags
+    // Find the first valid verdict line (skip any remaining THINK content)
     let verdictLine = "";
     for (const line of lines) {
-      if (!line.includes("<THINK>") && !line.includes("</THINK>")) {
-        verdictLine = line.toUpperCase();
-        break;
+      const upperLine = line.toUpperCase();
+      // Skip any line with THINK tags (case-insensitive)
+      if (upperLine.includes("<THINK>") || upperLine.includes("</THINK>")) {
+        continue;
       }
+      // Skip empty THINK-like content
+      if (line.match(/^think|thinking|analysis|reasoning/i)) {
+        continue;
+      }
+      verdictLine = upperLine;
+      break;
     }
     
     if (!verdictLine) {

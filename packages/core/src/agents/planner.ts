@@ -465,6 +465,22 @@ export class PlannerAgent extends BaseAgent {
 
   private findOutlineNode(volumeOutline: string, chapterNumber: number): string | undefined {
     const lines = volumeOutline.split("\n").map((line) => line.trim()).filter(Boolean);
+    this.ctx.logger?.info(`[调试] findOutlineNode: 正在第${chapterNumber}章，共${lines.length}行`);
+
+    // Log all potential matching lines
+    for (const line of lines) {
+      const exactMatch = this.matchExactOutlineLine(line, chapterNumber);
+      const rangeMatch = this.matchRangeOutlineLine(line, chapterNumber);
+      if (exactMatch || rangeMatch) {
+        this.ctx.logger?.info(`[调试] findOutlineNode: 匹配到行: "${line}"`);
+        if (exactMatch) {
+          this.ctx.logger?.info(`[调试] findOutlineNode: 精确匹配结果: ${JSON.stringify(exactMatch?.slice(1))}`);
+        }
+        if (rangeMatch) {
+          this.ctx.logger?.info(`[调试] findOutlineNode: 范围匹配结果: ${JSON.stringify(rangeMatch?.slice(1))}`);
+        }
+      }
+    }
 
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index]!;
@@ -473,11 +489,13 @@ export class PlannerAgent extends BaseAgent {
 
       const inlineContent = this.cleanOutlineContent(match[1]);
       if (inlineContent) {
+        this.ctx.logger?.info(`[调试] findOutlineNode: 找到内联内容: "${inlineContent}"`);
         return inlineContent;
       }
 
       const nextContent = this.findNextOutlineContent(lines, index + 1);
       if (nextContent) {
+        this.ctx.logger?.info(`[调试] findOutlineNode: 找到后续内容: "${nextContent.slice(0, 100)}..."`);
         return nextContent;
       }
     }
@@ -489,11 +507,13 @@ export class PlannerAgent extends BaseAgent {
 
       const inlineContent = this.cleanOutlineContent(match[3]);
       if (inlineContent) {
+        this.ctx.logger?.info(`[调试] findOutlineNode: 找到范围内联内容: "${inlineContent}"`);
         return inlineContent;
       }
 
       const nextContent = this.findNextOutlineContent(lines, index + 1);
       if (nextContent) {
+        this.ctx.logger?.info(`[调试] findOutlineNode: 找到范围后续内容: "${nextContent.slice(0, 100)}..."`);
         return nextContent;
       }
     }
@@ -502,10 +522,13 @@ export class PlannerAgent extends BaseAgent {
       const line = lines[index]!;
       if (!this.isOutlineAnchorLine(line)) continue;
 
+      this.ctx.logger?.info(`[调试] findOutlineNode: 兜底匹配行: "${line}"`);
+
       const exactMatch = this.matchAnyExactOutlineLine(line);
       if (exactMatch) {
         const inlineContent = this.cleanOutlineContent(exactMatch[1]);
         if (inlineContent) {
+          this.ctx.logger?.info(`[调试] findOutlineNode: 兜底找到精确匹配: "${inlineContent}"`);
           return inlineContent;
         }
       }
@@ -514,6 +537,7 @@ export class PlannerAgent extends BaseAgent {
       if (rangeMatch) {
         const inlineContent = this.cleanOutlineContent(rangeMatch[3]);
         if (inlineContent) {
+          this.ctx.logger?.info(`[调试] findOutlineNode: 兜底找到范围匹配: "${inlineContent}"`);
           return inlineContent;
         }
       }
@@ -692,6 +716,9 @@ export class PlannerAgent extends BaseAgent {
       "",
       this.renderHookBudget(activeHookCount, language),
     ].join("\n");
+
+    // Log the final output
+    this.ctx.logger?.info(`[调试] renderIntentMarkdown: 最终Outline Node: "${intent.outlineNode ?? "(未找到)"}"`);
 
     return [
       "# Chapter Intent",

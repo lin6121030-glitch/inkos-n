@@ -1,5 +1,6 @@
 import type { AuditIssue, AuditResult } from "../agents/continuity.js";
 import type { ValidationResult, StateValidatorAgent } from "../agents/state-validator.js";
+import { ValidationSeverity } from "../agents/state-validator.js";
 import type { WriteChapterOutput, WriterAgent } from "../agents/writer.js";
 import type { BookConfig } from "../models/book.js";
 import type { ContextPackage, RuleStack } from "../models/input-governance.js";
@@ -68,6 +69,19 @@ export async function validateChapterTruthPersistence(params: {
     for (const warning of validation.warnings) {
       params.logger?.warn(`  [${warning.category}] ${warning.description}`);
     }
+    
+    // Add State Validator warnings to auditResult.issues
+    auditResult = {
+      ...auditResult,
+      issues: [...auditResult.issues, ...validation.warnings.map(w => ({
+        severity: w.severity === ValidationSeverity.FAIL ? "critical" as const :
+                w.severity === ValidationSeverity.CONCERN ? "concern" as const :
+                "warning" as const,
+        category: `state-${w.category}`,
+        description: w.description,
+        suggestion: "",
+      }))],
+    };
   }
 
   if (!validation.passed) {
