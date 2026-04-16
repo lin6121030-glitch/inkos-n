@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { BaseAgent } from "./base.js";
+import type { LLMMessage } from "../llm/provider.js";
 import type { BookConfig } from "../models/book.js";
 import { parseBookRules } from "../models/book-rules.js";
 import { ChapterIntentSchema, type ChapterConflict, type ChapterIntent } from "../models/input-governance.js";
@@ -25,6 +26,29 @@ export interface PlanChapterOutput {
   readonly intentMarkdown: string;
   readonly plannerInputs: ReadonlyArray<string>;
   readonly runtimePath: string;
+}
+
+export interface OutlineExtractionResult {
+  readonly outlineNode: string;
+  readonly coreConflict: string | null;
+  readonly subplotConflict: string | null;
+  readonly deepConflict: string | null;
+  readonly chapterEvent: string | null;
+  readonly payoffGoal: string | null;
+  readonly keyTwist: string | null;
+  readonly goldenThreePlan: string | null;
+  readonly confidence: number;
+}
+
+export interface ChapterOutline {
+  readonly outlineNode: string;
+  readonly coreConflict?: string;
+  readonly subplotConflict?: string;
+  readonly deepConflict?: string;
+  readonly chapterEvent?: string;
+  readonly payoffGoal?: string;
+  readonly keyTwist?: string;
+  readonly goldenThreePlan?: string;
 }
 
 export class PlannerAgent extends BaseAgent {
@@ -65,14 +89,30 @@ export class PlannerAgent extends BaseAgent {
       this.readFileOrDefault(sourcePaths.currentState),
     ]);
 
-    const outlineNode = this.findOutlineNode(volumeOutline, input.chapterNumber);
+    const outlineData = await this.extractChapterOutline(
+      volumeOutline,
+      input.chapterNumber,
+      input.book.language,
+    );
+    const outlineNode = outlineData.outlineNode;
     const matchedOutlineAnchor = this.hasMatchedOutlineAnchor(volumeOutline, input.chapterNumber);
-    const goal = this.deriveGoal(input.externalContext, currentFocus, authorIntent, outlineNode, input.chapterNumber);
+
+    const llmExtracted = this.buildLLMExtractedDirectives({
+      coreConflict: outlineData.coreConflict,
+      subplotConflict: outlineData.subplotConflict,
+      deepConflict: outlineData.deepConflict,
+      chapterEvent: outlineData.chapterEvent,
+      payoffGoal: outlineData.payoffGoal,
+      keyTwist: outlineData.keyTwist,
+      language: input.book.language,
+    });
+
+    const goal = this.deriveGoal(input.externalContext, currentFocus, authorIntent, outlineNode, input.chapterNumber, outlineData.payoffGoal);
     const parsedRules = parseBookRules(bookRulesRaw);
-    const mustKeep = this.collectMustKeep(currentState, storyBible);
+    let mustKeep = this.collectMustKeep(currentState, storyBible);
     const mustAvoid = this.collectMustAvoid(currentFocus, parsedRules.rules.prohibitions);
     const styleEmphasis = this.collectStyleEmphasis(authorIntent, currentFocus);
-    const conflicts = this.collectConflicts(input.externalContext, currentFocus, outlineNode, volumeOutline);
+    let conflicts = this.collectConflicts(input.externalContext, currentFocus, outlineNode, volumeOutline);
     const planningAnchor = conflicts.length > 0 ? undefined : outlineNode;
     const memorySelection = await retrieveMemorySelection({
       bookDir: input.bookDir,
@@ -98,6 +138,19 @@ export class PlannerAgent extends BaseAgent {
       matchedOutlineAnchor,
       chapterSummaries,
     });
+
+    const llmEnrichments = this.enrichFromLLMExtract({
+      coreConflict: outlineData.coreConflict,
+      subplotConflict: outlineData.subplotConflict,
+      deepConflict: outlineData.deepConflict,
+      chapterEvent: outlineData.chapterEvent,
+      keyTwist: outlineData.keyTwist,
+      language: input.book.language,
+    });
+
+    mustKeep = this.unique([...mustKeep, ...llmEnrichments.mustKeep]);
+
+    conflicts = llmEnrichments.conflicts.length > 0 ? [...conflicts, ...llmEnrichments.conflicts] : conflicts;
 
     const intent = ChapterIntentSchema.parse({
       chapter: input.chapterNumber,
@@ -174,18 +227,24 @@ export class PlannerAgent extends BaseAgent {
     authorIntent: string,
     outlineNode: string | undefined,
     chapterNumber: number,
+    llmPayoffGoal?: string,
   ): string {
     const first = this.extractFirstDirective(externalContext);
-    if (first) return first;
+    if (first) return this.enrichGoalWithPayoff(first, llmPayoffGoal);
     const localOverride = this.extractLocalOverrideGoal(currentFocus);
-    if (localOverride) return localOverride;
+    if (localOverride) return this.enrichGoalWithPayoff(localOverride, llmPayoffGoal);
     const outline = this.extractFirstDirective(outlineNode);
-    if (outline) return outline;
+    if (outline) return this.enrichGoalWithPayoff(outline, llmPayoffGoal);
     const focus = this.extractFocusGoal(currentFocus);
-    if (focus) return focus;
+    if (focus) return this.enrichGoalWithPayoff(focus, llmPayoffGoal);
     const author = this.extractFirstDirective(authorIntent);
-    if (author) return author;
+    if (author) return this.enrichGoalWithPayoff(author, llmPayoffGoal);
     return `Advance chapter ${chapterNumber} with clear narrative focus.`;
+  }
+
+  private enrichGoalWithPayoff(goal: string, payoffGoal?: string): string {
+    if (!payoffGoal) return goal;
+    return `${goal} 收益目标：${payoffGoal}`;
   }
 
   private collectMustKeep(currentState: string, storyBible: string): string[] {
@@ -344,6 +403,68 @@ export class PlannerAgent extends BaseAgent {
     return this.isChineseLanguage(language)
       ? "不要继续依赖卷纲的 fallback 指令，必须把本章推进到新的弧线节点或地点变化。"
       : "Do not keep leaning on the outline fallback. Force this chapter toward a fresh arc beat or location change.";
+  }
+
+  private buildLLMExtractedDirectives(input: {
+    readonly coreConflict?: string;
+    readonly subplotConflict?: string;
+    readonly deepConflict?: string;
+    readonly chapterEvent?: string;
+    readonly payoffGoal?: string;
+    readonly keyTwist?: string;
+    readonly language?: string;
+  }): Pick<ChapterIntent, "arcDirective" | "sceneDirective" | "moodDirective" | "titleDirective"> {
+    const directives: Pick<ChapterIntent, "arcDirective" | "sceneDirective" | "moodDirective" | "titleDirective"> = {
+      arcDirective: undefined,
+      sceneDirective: undefined,
+      moodDirective: undefined,
+      titleDirective: undefined,
+    };
+
+    if (!this.isChineseLanguage(input.language)) {
+      return directives;
+    }
+
+    const parts: string[] = [];
+    if (input.coreConflict) parts.push(`明线冲突：${input.coreConflict}`);
+    if (input.subplotConflict) parts.push(`暗线冲突：${input.subplotConflict}`);
+    if (input.deepConflict) parts.push(`深层冲突：${input.deepConflict}`);
+
+    if (parts.length > 0) {
+      directives.arcDirective = parts.join("；");
+    }
+
+    if (input.keyTwist) {
+      directives.sceneDirective = `关键转折：${input.keyTwist}`;
+    }
+
+    return directives;
+  }
+
+  private enrichFromLLMExtract(input: {
+    readonly coreConflict?: string;
+    readonly subplotConflict?: string;
+    readonly deepConflict?: string;
+    readonly chapterEvent?: string;
+    readonly keyTwist?: string;
+    readonly language?: string;
+  }): { mustKeep: string[]; conflicts: ChapterConflict[] } {
+    const mustKeep: string[] = [];
+    const conflicts: ChapterConflict[] = [];
+
+    if (input.chapterEvent) {
+      mustKeep.push(`本章事件：${input.chapterEvent}`);
+    }
+
+    if (input.keyTwist) {
+      conflicts.push({
+        type: "key_twist",
+        detail: input.keyTwist,
+        resolution: "include in narrative",
+      });
+    }
+
+    return { mustKeep, conflicts };
   }
 
   private buildSceneDirective(
@@ -554,6 +675,211 @@ export class PlannerAgent extends BaseAgent {
       `[Planner] Cannot find outline node for chapter ${chapterNumber} in volume_outline. ` +
       `卷纲中未找到第${chapterNumber}章的对应节点。`,
     );
+  }
+
+  private async extractOutlineByLLM(
+    volumeOutline: string,
+    chapterNumber: number,
+    language?: string,
+  ): Promise<ChapterOutline> {
+    const isZh = this.isChineseLanguage(language);
+
+    const prompt = isZh
+      ? `你是一个小说大纲解析专家。从以下卷纲中提取第${chapterNumber}章的相关内容。
+
+## 重要约束
+- 必须从"章节结构表"中定位本章对应的事件
+- 如果是1-3章，优先从"黄金三章规划"提取
+- 如果本章有关键转折节点，必须包含
+- 不要编造信息，只提取大纲中明确存在的内容
+- 如果某项信息不存在，返回 null
+
+## 卷纲内容
+${volumeOutline}
+
+## 输出要求
+返回以下JSON格式（必须是有效JSON）：
+{
+  "outlineNode": "本章核心大纲要点（50字以内）",
+  "coreConflict": "明线冲突相关描述（如果没有则null）",
+  "subplotConflict": "暗线冲突相关描述（如果没有则null）",
+  "deepConflict": "深层冲突相关描述（如果没有则null）",
+  "chapterEvent": "章节结构表中的事件名",
+  "payoffGoal": "收益目标（如果没有则null）",
+  "keyTwist": "关键转折描述（如果没有则null）",
+  "goldenThreePlan": "黄金三章规划内容（仅1-3章有，其他返回null）",
+  "confidence": "你对提取结果的信心度（0-1之间，1表示非常有信心）"
+}
+
+只返回JSON，不要其他内容。`
+      : `You are a novel outline parsing expert. Extract information for Chapter ${chapterNumber} from the following volume outline.
+
+## Important Constraints
+- Must locate this chapter's event from the "Chapter Structure Table"
+- If this is Chapter 1-3, prioritize extracting from "Golden Three Chapters Plan"
+- Include key turning points if any
+- Do NOT fabricate information - only extract what exists in the outline
+- If information doesn't exist, return null
+
+## Volume Outline
+${volumeOutline}
+
+## Output Requirements
+Return valid JSON with this structure:
+{
+  "outlineNode": "Core outline point for this chapter (within 50 words)",
+  "coreConflict": "Main conflict description (null if none)",
+  "subplotConflict": "Subplot conflict description (null if none)",
+  "deepConflict": "Deep conflict description (null if none)",
+  "chapterEvent": "Event name from chapter structure table",
+  "payoffGoal": "Payoff goal (null if none)",
+  "keyTwist": "Key twist description (null if none)",
+  "goldenThreePlan": "Golden three chapters plan content (only for Ch 1-3, null otherwise)",
+  "confidence": "Your confidence in the extraction (0-1, 1 being highest)"
+}
+
+Only return JSON, nothing else.`;
+
+    try {
+      const messages: LLMMessage[] = [
+        { role: "user", content: prompt },
+      ];
+
+      const response = await this.chat(messages, { temperature: 0.3 });
+      const content = response.content ?? "";
+
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("LLM response is not valid JSON");
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]!);
+
+      return {
+        outlineNode: parsed.outlineNode ?? "",
+        coreConflict: parsed.coreConflict ?? undefined,
+        subplotConflict: parsed.subplotConflict ?? undefined,
+        deepConflict: parsed.deepConflict ?? undefined,
+        chapterEvent: parsed.chapterEvent ?? undefined,
+        payoffGoal: parsed.payoffGoal ?? undefined,
+        keyTwist: parsed.keyTwist ?? undefined,
+        goldenThreePlan: parsed.goldenThreePlan ?? undefined,
+      };
+    } catch (error) {
+      this.ctx.logger?.error(`[Planner] LLM提取失败: ${error}`);
+      throw error;
+    }
+  }
+
+  private async extractOutlineWithVerification(
+    volumeOutline: string,
+    chapterNumber: number,
+    language?: string,
+  ): Promise<ChapterOutline & { confidence: number }> {
+    const result1 = await this.extractOutlineByLLM(volumeOutline, chapterNumber, language);
+    const result2 = await this.extractOutlineByLLM(volumeOutline, chapterNumber, language);
+
+    const hasValidContent = (r: ChapterOutline) => r.outlineNode.length > 10;
+    const isConsistent =
+      hasValidContent(result1) &&
+      hasValidContent(result2) &&
+      (result1.outlineNode === result2.outlineNode ||
+        this.calculateSimilarity(result1.outlineNode, result2.outlineNode) > 0.4);
+
+    if (isConsistent) {
+      const confidence = this.calculateSimilarity(result1.outlineNode, result2.outlineNode);
+      return { ...result1, confidence };
+    }
+
+    if (hasValidContent(result1)) {
+      return { ...result1, confidence: 0.6 };
+    }
+    if (hasValidContent(result2)) {
+      return { ...result2, confidence: 0.6 };
+    }
+
+    const negotiatePrompt = `你两次提取的第${chapterNumber}章大纲结果不一致：
+结果1: ${result1.outlineNode}
+结果2: ${result2.outlineNode}
+
+请根据卷纲内容，确定最准确的提取结果，只返回一个结果。
+只返回JSON格式：
+{
+  "outlineNode": "最终确定的大纲要点",
+  "confidence": 0.5
+}`;
+
+    const messages: LLMMessage[] = [
+      { role: "user", content: negotiatePrompt },
+    ];
+
+    const response = await this.chat(messages, { temperature: 0.3 });
+    const content = response.content ?? "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]!);
+      return { ...result1, confidence: parsed.confidence ?? 0.6 };
+    }
+
+    return { ...result1, confidence: 0.5 };
+  }
+
+  private calculateSimilarity(str1: string, str2: string): number {
+    if (!str1 || !str2) return 0;
+    const set1 = new Set(str1.split(""));
+    const set2 = new Set(str2.split(""));
+    const intersection = new Set([...set1].filter((x) => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+    return intersection.size / union.size;
+  }
+
+  private async extractChapterOutline(
+    volumeOutline: string,
+    chapterNumber: number,
+    language?: string,
+  ): Promise<ChapterOutline> {
+    if (!volumeOutline || volumeOutline === "(文件尚未创建)") {
+      return { outlineNode: "" };
+    }
+
+    try {
+      const result = await this.extractOutlineWithVerification(
+        volumeOutline,
+        chapterNumber,
+        language,
+      );
+
+      if (result.confidence >= 0.5 && result.outlineNode && result.outlineNode.length > 10) {
+        this.ctx.logger?.info(
+          `[Planner] LLM提取成功(信心度:${result.confidence}): ${result.outlineNode.slice(0, 50)}...`,
+        );
+        const { confidence: _, ...outline } = result;
+        return outline;
+      }
+
+      this.ctx.logger?.warn(
+        `[Planner] LLM提取信心度不足(${result.confidence})，使用正则兜底`,
+      );
+      return this.findOutlineNodeWithResult(volumeOutline, chapterNumber);
+    } catch (error) {
+      this.ctx.logger?.error(
+        `[Planner] LLM提取异常: ${error}，使用正则兜底`,
+      );
+      return this.findOutlineNodeWithResult(volumeOutline, chapterNumber);
+    }
+  }
+
+  private findOutlineNodeWithResult(
+    volumeOutline: string,
+    chapterNumber: number,
+  ): ChapterOutline {
+    try {
+      const outlineNode = this.findOutlineNode(volumeOutline, chapterNumber);
+      return { outlineNode: outlineNode ?? "" };
+    } catch {
+      return { outlineNode: "" };
+    }
   }
 
   private cleanOutlineContent(content?: string): string | undefined {
