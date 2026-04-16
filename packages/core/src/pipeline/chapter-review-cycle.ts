@@ -91,6 +91,8 @@ export async function runChapterReviewCycle(params: {
   let finalContent = params.initialOutput.content;
   let finalWordCount = params.initialOutput.wordCount;
   let revised = false;
+  let revisionAttempts = 0;
+  const MAX_REVISION_ATTEMPTS = 3;
 
   if (params.initialOutput.postWriteErrors.length > 0) {
     params.logWarn({
@@ -149,10 +151,39 @@ export async function runChapterReviewCycle(params: {
     summary: llmAudit.summary,
   };
 
-  if (!auditResult.passed) {
+  // Revision loop with attempt limit
+  while (!auditResult.passed && revisionAttempts < MAX_REVISION_ATTEMPTS) {
     const criticalIssues = auditResult.issues.filter((issue) => issue.severity === "critical");
+    const warningConcernIssues = auditResult.issues.filter(issue =>
+      issue.severity === "warning" || issue.severity === "concern"
+    );
+    const warningConcernCount = warningConcernIssues.length;
+
+    // Count suggestions separately for debugging
+    const suggestionCount = auditResult.issues.filter(issue => issue.severity === "suggestion").length;
+
+    // Log all issues for debugging
+    params.logWarn({
+      zh: `所有问题详情 (${auditResult.issues.length}个):\n${auditResult.issues.map((i, index) => `${index + 1}. [${i.severity}] ${i.category}: ${i.description}`).join('\n')}`,
+      en: `All issues details (${auditResult.issues.length} total):\n${auditResult.issues.map((i, index) => `${index + 1}. [${i.severity}] ${i.category}: ${i.description}`).join('\n')}`
+    });
+
+    // Log the analysis for debugging
+    params.logWarn({
+      zh: `audit-failed analysis (attempt ${revisionAttempts + 1}/${MAX_REVISION_ATTEMPTS}): critical=${criticalIssues.length}, warning+concern=${warningConcernCount} (threshold=3), suggestions=${suggestionCount}`,
+      en: `audit-failed analysis (attempt ${revisionAttempts + 1}/${MAX_REVISION_ATTEMPTS}): critical=${criticalIssues.length}, warning+concern=${warningConcernCount} (threshold=3), suggestions=${suggestionCount}`
+    });
+
+    // Check if we should trigger revision
+    const shouldRevise = criticalIssues.length > 0 || warningConcernCount > 3;
+    if (!shouldRevise) {
+      break; // No revision needed, exit loop
+    }
+
+    revisionAttempts++;
+    const reviser = params.createReviser();
+
     if (criticalIssues.length > 0) {
-      const reviser = params.createReviser();
       params.logStage({ zh: "自动修复关键问题", en: "auto-revising critical issues" });
       const reviseOutput = await reviser.reviseChapter(
         params.bookDir,
@@ -202,7 +233,79 @@ export async function runChapterReviewCycle(params: {
           summary: reAudit.summary,
         });
       }
+    } else if (warningConcernCount > 3) {
+      params.logStage({ zh: "auto-revising warning issues (count exceeded)", en: "auto-revising warning issues (count exceeded)" });
+      params.logWarn({
+        zh: `warning+concern count (${warningConcernCount}) exceeds threshold (3), triggering auto-revision (attempt ${revisionAttempts}/${MAX_REVISION_ATTEMPTS})`,
+        en: `warning+concern count (${warningConcernCount}) exceeds threshold (3), triggering auto-revision (attempt ${revisionAttempts}/${MAX_REVISION_ATTEMPTS})`
+      });
+
+      // Pass warning, concern, and suggestion issues to reviser
+      const issuesToFix = auditResult.issues.filter(issue =>
+        issue.severity === "warning" || issue.severity === "concern" || issue.severity === "suggestion"
+      );
+      const reviseOutput = await reviser.reviseChapter(
+        params.bookDir,
+        finalContent,
+        params.chapterNumber,
+        issuesToFix,
+        "spot-fix",
+        params.book.genre,
+        {
+          ...params.reducedControlInput,
+          lengthSpec: params.lengthSpec,
+        },
+      );
+      totalUsage = params.addUsage(totalUsage, reviseOutput.tokenUsage);
+
+      if (reviseOutput.revisedContent.length > 0) {
+        const normalizedRevision = await params.normalizeDraftLengthIfNeeded(reviseOutput.revisedContent);
+        totalUsage = params.addUsage(totalUsage, normalizedRevision.tokenUsage);
+        postReviseCount = normalizedRevision.wordCount;
+        normalizeApplied = normalizeApplied || normalizedRevision.applied;
+
+        const preMarkers = params.analyzeAITells(finalContent);
+        const postMarkers = params.analyzeAITells(normalizedRevision.content);
+        if (postMarkers.issues.length <= preMarkers.issues.length) {
+          finalContent = normalizedRevision.content;
+          finalWordCount = normalizedRevision.wordCount;
+          revised = true;
+          params.assertChapterContentNotEmpty(finalContent, "revision");
+        }
+
+        const reAudit = await params.auditor.auditChapter(
+          params.bookDir,
+          finalContent,
+          params.chapterNumber,
+          params.book.genre,
+          params.reducedControlInput
+            ? { ...params.reducedControlInput, temperature: 0 }
+            : { temperature: 0 },
+        );
+        totalUsage = params.addUsage(totalUsage, reAudit.tokenUsage);
+        const reAITells = params.analyzeAITells(finalContent);
+        const reSensitive = params.analyzeSensitiveWords(finalContent);
+        const reHasBlocked = reSensitive.found.some((item) => item.severity === "block");
+        auditResult = params.restoreLostAuditIssues(auditResult, {
+          passed: reHasBlocked ? false : reAudit.passed,
+          issues: [...reAudit.issues, ...reAITells.issues, ...reSensitive.issues],
+          summary: reAudit.summary,
+        });
+
+        params.logWarn({
+          zh: `警告修复完成：新的警告+关注数量 = ${auditResult.issues.filter(i => i.severity === "warning" || i.severity === "concern").length}`,
+          en: `warning-revision completed: new warning+concern count = ${auditResult.issues.filter(i => i.severity === "warning" || i.severity === "concern").length}`
+        });
+      }
     }
+  }
+
+  // Log final status if max attempts reached
+  if (!auditResult.passed && revisionAttempts >= MAX_REVISION_ATTEMPTS) {
+    params.logWarn({
+      zh: `达到最大修复次数限制 (${MAX_REVISION_ATTEMPTS})，停止自动修复`,
+      en: `Maximum revision attempts (${MAX_REVISION_ATTEMPTS}) reached, stopping auto-revision`
+    });
   }
 
   return {

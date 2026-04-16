@@ -78,14 +78,24 @@ export async function validateChapterTruthPersistence(params: {
     // Add State Validator warnings to auditResult.issues
     auditResult = {
       ...auditResult,
-      issues: [...auditResult.issues, ...validation.warnings.map(w => ({
-        severity: w.severity === ValidationSeverity.FAIL ? "critical" as const :
-                w.severity === ValidationSeverity.CONCERN ? "concern" as const :
-                "warning" as const,
-        category: `state-${w.category}`,
-        description: w.description,
-        suggestion: "",
-      }))],
+      issues: [...auditResult.issues, 
+        ...validation.warnings.map(w => ({
+          severity: w.severity === ValidationSeverity.FAIL ? "critical" as const :
+                  w.severity === ValidationSeverity.CONCERN ? "concern" as const :
+                  "warning" as const,
+          category: `state-${w.category}`,
+          description: w.description,
+          suggestion: validation.fixSuggestions && validation.fixSuggestions.length > 0 
+            ? validation.fixSuggestions.find(fs => fs.category === w.category)?.suggestion || ""
+            : "",
+        })),
+        ...(validation.fixSuggestions || []).map(fs => ({
+          severity: "suggestion" as const,
+          category: `state-fix-${fs.category}`,
+          description: fs.issue,
+          suggestion: fs.suggestion,
+        }))
+      ],
     };
   }
 

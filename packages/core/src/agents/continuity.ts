@@ -22,7 +22,7 @@ export interface AuditResult {
 }
 
 export interface AuditIssue {
-  readonly severity: "critical" | "warning" | "concern" | "info";
+  readonly severity: "critical" | "warning" | "concern" | "info" | "suggestion";
   readonly category: string;
   readonly description: string;
   readonly suggestion: string;
@@ -95,7 +95,7 @@ function joinLocalized(items: ReadonlyArray<string>, language: PromptLanguage): 
 }
 
 function formatFanficSeverityNote(
-  severity: "critical" | "warning" | "info",
+  severity: "critical" | "warning" | "info" | "suggestion",
   language: PromptLanguage,
 ): string {
   if (language === "en") {
@@ -103,14 +103,18 @@ function formatFanficSeverityNote(
       ? "Strict check."
       : severity === "info"
         ? "Log only; do not fail the chapter."
-        : "Warning level.";
+        : severity === "suggestion"
+          ? "Repair suggestion."
+          : "Warning level.";
   }
 
   return severity === "critical"
-    ? "（严格检查）"
+    ? "strict check"
     : severity === "info"
-      ? "（仅记录，不判定失败）"
-      : "（警告级别）";
+      ? "log only; do not fail the chapter"
+      : severity === "suggestion"
+        ? "repair suggestion"
+        : "Warning level";
 }
 
 function buildDimensionNote(

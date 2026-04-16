@@ -101,7 +101,13 @@ export class ReviserAgent extends BaseAgent {
       : (parsedRules?.body ?? "(无文风指南)");
 
     const issueList = issues
-      .map((i) => `- [${i.severity}] ${i.category}: ${i.description}\n  建议: ${i.suggestion}`)
+      .map((i) => {
+        if (i.severity === "suggestion") {
+          return `fix suggestion: ${i.suggestion}`;
+        } else {
+          return `- [${i.severity}] ${i.category}: ${i.description}\n  suggestion: ${i.suggestion}`;
+        }
+      })
       .join("\n");
 
     const modeDesc = MODE_DESCRIPTIONS[mode];
