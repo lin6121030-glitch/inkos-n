@@ -512,10 +512,14 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
     timeline: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[]; fixSuggestions: FixSuggestion[] };
   }): ValidationResult {
     // 添加调试日志：分析各轮验证结果
+    const statePassCount = results.state.warnings.filter(w => w.severity === ValidationSeverity.PASS).length;
+    const stateWarningCount = results.state.warnings.filter(w => w.severity === ValidationSeverity.WARNING).length;
+    const stateConcernCount = results.state.warnings.filter(w => w.severity === ValidationSeverity.CONCERN).length;
+    const stateFailCount = results.state.warnings.filter(w => w.severity === ValidationSeverity.FAIL).length;
     this.log?.info(`[state-validator] [DEBUG] 多轮验证结果分析:`);
-    this.log?.info(`[state-validator] [DEBUG] State Round: passed=${results.state.passed}, severity=${results.state.severity}, warnings=${results.state.warnings.length}`);
-    this.log?.info(`[state-validator] [DEBUG] Hooks Round: passed=${results.hooks.passed}, severity=${results.hooks.severity}, warnings=${results.hooks.warnings.length}`);
-    this.log?.info(`[state-validator] [DEBUG] Timeline Round: passed=${results.timeline.passed}, severity=${results.timeline.severity}, warnings=${results.timeline.warnings.length}`);
+    this.log?.info(`[state-validator] [DEBUG] State Round: passed=${results.state.passed}, severity=${results.state.severity},  PASS=${statePassCount}, WARNING=${stateWarningCount}, CONCERN=${stateConcernCount}, FAIL=${stateFailCount}`);
+    this.log?.info(`[state-validator] [DEBUG] Hooks Round: passed=${results.hooks.passed}, severity=${results.hooks.severity},  PASS=${statePassCount}, WARNING=${stateWarningCount}, CONCERN=${stateConcernCount}, FAIL=${stateFailCount}`);
+    this.log?.info(`[state-validator] [DEBUG] Timeline Round: passed=${results.timeline.passed}, severity=${results.timeline.severity},  PASS=${statePassCount}, WARNING=${stateWarningCount}, CONCERN=${stateConcernCount}, FAIL=${stateFailCount}`);
     
     // 检查是否有硬矛盾（FAIL）
     const hasHardContradiction = 
@@ -535,10 +539,10 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
     let overallSeverity: ValidationSeverity;
     if (hasHardContradiction) {
       overallSeverity = ValidationSeverity.FAIL;
-    } else if (severities.some(s => s === ValidationSeverity.CONCERN)) {
-      overallSeverity = ValidationSeverity.CONCERN;
     } else if (severities.some(s => s === ValidationSeverity.WARNING)) {
-      overallSeverity = ValidationSeverity.WARNING;
+      overallSeverity = ValidationSeverity.WARNING;  // 先检查WARNING
+    } else if (severities.some(s => s === ValidationSeverity.CONCERN)) {
+      overallSeverity = ValidationSeverity.CONCERN;  // 再检查CONCERN
     } else {
       overallSeverity = ValidationSeverity.PASS;
     }
