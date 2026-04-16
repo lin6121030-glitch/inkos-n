@@ -102,9 +102,6 @@ export class StateValidatorAgent extends BaseAgent {
     
     const contextResponse = await this.chat(messages, { temperature: 0.1, maxTokens: 1000 });
     
-    // 添加调试日志：打印上下文建立的LLM回复
-    this.log?.info(`[DEBUG] Context Round - LLM Response: ${JSON.stringify(contextResponse.content)}`);
-    
     messages.push({ role: "assistant", content: contextResponse.content });
 
     // 第2轮：状态验证
@@ -135,7 +132,7 @@ export class StateValidatorAgent extends BaseAgent {
       timelineResult = await this.validateTimelineRound(messages, chapterContent, language);
     } catch (error) {
       this.log?.warn(`Timeline Round failed: ${error}`);
-      timelineResult = { passed: true, severity: ValidationSeverity.PASS, warnings: [] };
+      timelineResult = { passed: false, severity: ValidationSeverity.FAIL, warnings: [] };
     }
 
     return {
@@ -163,9 +160,11 @@ VALIDATION LEVEL CRITERIA:
 Please judge each specific issue's severity based on its actual impact and choose the most appropriate level.
 
 OUTPUT FORMAT:
-First line MUST be exactly: PASS or WARNING or CONCERN or FAIL
+First line MUST be exactly: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAIL
 Following lines: [category] [severity] description (if issues)
 Severity options: PASS, WARNING, CONCERN, FAIL
+
+Note: Do not use ** symbols, use VERDICT_PASS format directly
 
 Focus on validation, provide results directly.`
       : `重要指令：你是小说连续性验证器，需要多轮验证内容。
@@ -184,7 +183,7 @@ Focus on validation, provide results directly.`
 请根据具体问题内容，自行判断其严重程度，选择最合适的级别。
 
 输出格式：
-第一行必须是：PASS 或 WARNING 或 CONCERN 或 FAIL
+第一行必须是：VERDICT_PASS 或 VERDICT_WARNING 或 VERDICT_CONCERN 或 VERDICT_FAIL
 后续行：[类别] [严重程度] 详细描述（支持多行分析）
 严重程度选项：PASS、WARNING、CONCERN、FAIL
 可选类别：[分析]、[依据]、[建议]、[伏笔内容]、[数值矛盾]等
@@ -227,8 +226,11 @@ Check for:
 3. Temporal impossibilities
 4. Character status contradictions
 
-Output format: PASS | WARNING | CONCERN | FAIL`
-      : `现在验证状态变更：
+Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAIL
+后续行：[category] [severity] description（如果有问题）
+
+注意：不要使用**符号，直接用VERDICT_PASS格式`
+      : `现在验证状态变更
 
 ${stateDiff}
 
@@ -238,14 +240,14 @@ ${stateDiff}
 3. 时间不可能性
 4. 角色状态矛盾
 
-输出格式：PASS | WARNING | CONCERN | FAIL`;
+输出格式：VERDICT_PASS 或 VERDICT_WARNING 或 VERDICT_CONCERN 或 VERDICT_FAIL
+后续行：[category] [severity] description（如果有问题）
+
+注意：不要使用**符号，直接用VERDICT_PASS格式`;
 
     messages.push({ role: "user", content: statePrompt });
     
     const response = await this.chat(messages, { temperature: 0.1, maxTokens: 2000 });
-    
-    // 添加调试日志：打印状态验证的LLM回复
-    this.log?.info(`[DEBUG] State Round - LLM Response: ${JSON.stringify(response.content)}`);
     
     return this.parseRoundResult(response.content, "state");
   }
@@ -270,7 +272,10 @@ Check for:
 3. Hook progression inconsistencies
 4. Hook timeline violations
 
-Output format: PASS | WARNING | CONCERN | FAIL`
+Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAIL
+后续行：[category] [severity] description（如果有问题）
+
+注意：不要使用**符号，直接用VERDICT_PASS格式`
       : `现在验证伏笔变更：
 
 ${hooksDiff}
@@ -281,14 +286,14 @@ ${hooksDiff}
 3. 伏笔推进不一致
 4. 伏笔时间线违规
 
-输出格式：PASS | WARNING | CONCERN | FAIL`;
+输出格式：VERDICT_PASS 或 VERDICT_WARNING 或 VERDICT_CONCERN 或 VERDICT_FAIL
+后续行：[category] [severity] description（如果有问题）
+
+注意：不要使用**符号，直接用VERDICT_PASS格式`
 
     messages.push({ role: "user", content: hooksPrompt });
     
     const response = await this.chat(messages, { temperature: 0.1, maxTokens: 2000 });
-    
-    // 添加调试日志：打印伏笔验证的LLM回复
-    this.log?.info(`[DEBUG] Hooks Round - LLM Response: ${JSON.stringify(response.content)}`);
     
     return this.parseRoundResult(response.content, "hooks");
   }
@@ -309,7 +314,10 @@ Check for:
 3. Location transition合理性
 4. Action causality
 
-Output format: PASS | WARNING | CONCERN | FAIL`
+Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAIL
+后续行：[category] [severity] description（如果有问题）
+
+注意：不要使用**符号，直接用VERDICT_PASS格式`
       : `现在验证时间线一致性：
 
 章节内容：${chapterContent.slice(0, 3000)}...
@@ -320,14 +328,15 @@ Output format: PASS | WARNING | CONCERN | FAIL`
 3. 位置过渡合理性
 4. 行为因果关系
 
-输出格式：PASS | WARNING | CONCERN | FAIL`;
+输出格式：
+第一行必须是：VERDICT_PASS 或 VERDICT_WARNING 或 VERDICT_CONCERN 或 VERDICT_FAIL
+后续行：[category] [severity] description（如果有问题）
+
+注意：不要使用**符号，直接用VERDICT_PASS格式`;
 
     messages.push({ role: "user", content: timelinePrompt });
     
     const response = await this.chat(messages, { temperature: 0.1, maxTokens: 2000 });
-    
-    // 添加调试日志：打印时间线验证的LLM回复
-    this.log?.info(`[DEBUG] Timeline Round - LLM Response: ${JSON.stringify(response.content)}`);
     
     return this.parseRoundResult(response.content, "timeline");
   }
@@ -337,6 +346,10 @@ Output format: PASS | WARNING | CONCERN | FAIL`
     severity: ValidationSeverity; 
     warnings: ValidationWarning[] 
   } {
+    // 添加调试日志：显示LLM原始输出
+    this.log?.info(`[state-validator] [DEBUG] ${category} Round LLM原始输出:`);
+    this.log?.info(`[state-validator] [DEBUG] ${JSON.stringify(content)}`);
+    
     // Enhanced THINK tag filtering - handle multiple variations
     let filteredContent = content
       .replace(/<THINK>[\s\S]*?<\/THINK>/gi, '') // Complete THINK blocks
@@ -378,16 +391,16 @@ Output format: PASS | WARNING | CONCERN | FAIL`
     let severity: ValidationSeverity;
     let passed: boolean;
 
-    if (verdictLine.includes("FAIL")) {
+    if (verdictLine.includes("VERDICT_FAIL")) {
       severity = ValidationSeverity.FAIL;
       passed = false;
-    } else if (verdictLine.includes("CONCERN")) {
+    } else if (verdictLine.includes("VERDICT_CONCERN")) {
       severity = ValidationSeverity.CONCERN;
       passed = true; // CONCERN仍然通过，但有警告
-    } else if (verdictLine.includes("WARNING")) {
+    } else if (verdictLine.includes("VERDICT_WARNING")) {
       severity = ValidationSeverity.WARNING;
       passed = true; // WARNING仍然通过，但有警告
-    } else if (verdictLine.includes("PASS")) {
+    } else if (verdictLine.includes("VERDICT_PASS")) {
       severity = ValidationSeverity.PASS;
       passed = true;
     } else {
@@ -395,10 +408,10 @@ Output format: PASS | WARNING | CONCERN | FAIL`
     }
 
     const warnings: ValidationWarning[] = [];
-    for (let i = 1; i < lines.length; i++) {
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!.trim();
       if (!line) continue; // 跳过空行
-      if (line.includes("PASS") || line.includes("FAIL") || line.includes("WARNING") || line.includes("CONCERN")) {
+      if (line.includes("VERDICT_PASS") || line.includes("VERDICT_FAIL") || line.includes("VERDICT_WARNING") || line.includes("VERDICT_CONCERN")) {
         // 如果是verdict行，跳过但继续处理其他行
         continue;
       }
@@ -427,11 +440,19 @@ Output format: PASS | WARNING | CONCERN | FAIL`
     hooks: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
     timeline: { passed: boolean; severity: ValidationSeverity; warnings: ValidationWarning[] };
   }): ValidationResult {
+    // 添加调试日志：分析各轮验证结果
+    this.log?.info(`[state-validator] [DEBUG] 多轮验证结果分析:`);
+    this.log?.info(`[state-validator] [DEBUG] State Round: passed=${results.state.passed}, severity=${results.state.severity}, warnings=${results.state.warnings.length}`);
+    this.log?.info(`[state-validator] [DEBUG] Hooks Round: passed=${results.hooks.passed}, severity=${results.hooks.severity}, warnings=${results.hooks.warnings.length}`);
+    this.log?.info(`[state-validator] [DEBUG] Timeline Round: passed=${results.timeline.passed}, severity=${results.timeline.severity}, warnings=${results.timeline.warnings.length}`);
+    
     // 检查是否有硬矛盾（FAIL）
     const hasHardContradiction = 
       results.state.severity === ValidationSeverity.FAIL ||
       results.hooks.severity === ValidationSeverity.FAIL ||
       results.timeline.severity === ValidationSeverity.FAIL;
+    
+    this.log?.info(`[state-validator] [DEBUG] 硬矛盾检查: hasHardContradiction=${hasHardContradiction}`);
 
     // 计算整体严重程度
     const severities = [
@@ -451,12 +472,25 @@ Output format: PASS | WARNING | CONCERN | FAIL`
       overallSeverity = ValidationSeverity.PASS;
     }
 
-    // 合并所有警告
+    // 添加调试日志：显示各轮warnings的详细内容
+    this.log?.info(`[state-validator] [DEBUG] State Round warnings详情:`);
+    results.state.warnings.forEach(w => this.log?.info(`[state-validator] [DEBUG]   [${w.severity}] [${w.category}] ${w.description}`));
+    
+    this.log?.info(`[state-validator] [DEBUG] Hooks Round warnings详情:`);
+    results.hooks.warnings.forEach(w => this.log?.info(`[state-validator] [DEBUG]   [${w.severity}] [${w.category}] ${w.description}`));
+    
+    this.log?.info(`[state-validator] [DEBUG] Timeline Round warnings详情:`);
+    results.timeline.warnings.forEach(w => this.log?.info(`[state-validator] [DEBUG]   [${w.severity}] [${w.category}] ${w.description}`));
+
+    // 合并所有警告，但过滤掉PASS项（PASS不是问题，不需要传递）
     const allWarnings = [
-      ...results.state.warnings,
-      ...results.hooks.warnings,
-      ...results.timeline.warnings
+      ...results.state.warnings.filter(w => w.severity !== ValidationSeverity.PASS),
+      ...results.hooks.warnings.filter(w => w.severity !== ValidationSeverity.PASS),
+      ...results.timeline.warnings.filter(w => w.severity !== ValidationSeverity.PASS)
     ];
+    
+    this.log?.info(`[state-validator] [DEBUG] 过滤PASS项后的warnings数量: ${allWarnings.length}`);
+    allWarnings.forEach(w => this.log?.info(`[state-validator] [DEBUG]   [${w.severity}] [${w.category}] ${w.description}`));
 
     // 计算WARNING和CONCERN数量，超过阈值则审计失败
     const warningConcernCount = allWarnings.filter(w => 
@@ -466,8 +500,15 @@ Output format: PASS | WARNING | CONCERN | FAIL`
 
     const hasTooManyWarnings = warningConcernCount >= 3;
 
+    const finalPassed = !hasHardContradiction && !hasTooManyWarnings;
+    
+    this.log?.info(`[state-validator] [DEBUG] 最终验证结果:`);
+    this.log?.info(`[state-validator] [DEBUG] 警告数量: warningConcernCount=${warningConcernCount}, hasTooManyWarnings=${hasTooManyWarnings}`);
+    this.log?.info(`[state-validator] [DEBUG] 最终通过状态: finalPassed=${finalPassed}`);
+    this.log?.info(`[state-validator] [DEBUG] 整体严重程度: overallSeverity=${overallSeverity}`);
+
     return {
-      passed: !hasHardContradiction && !hasTooManyWarnings,
+      passed: finalPassed,
       severity: overallSeverity,
       warnings: allWarnings,
       details: results
@@ -525,7 +566,7 @@ Output format: PASS | WARNING | CONCERN | FAIL`
     } else if (verdictLine.includes("PASS")) {
       severity = ValidationSeverity.PASS;
       passed = true;
-    } else {
+    }else {
       throw new Error(`Invalid verdict: ${verdictLine}`);
     }
 

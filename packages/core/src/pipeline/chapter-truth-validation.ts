@@ -8,6 +8,7 @@ import type { Logger } from "../utils/logger.js";
 import type { LengthLanguage } from "../utils/length-metrics.js";
 import {
   buildStateDegradedPersistenceOutput,
+  buildStateDegradedIssues,
   retrySettlementAfterValidationFailure,
 } from "./chapter-state-recovery.js";
 
@@ -61,6 +62,10 @@ export async function validateChapterTruthPersistence(params: {
     throw new Error(`State validation failed for chapter ${params.chapterNumber}: ${String(error)}`);
   }
 
+  // 添加调试日志：验证器原始结果
+  params.logger?.warn(`[chapter-truth-validation] [DEBUG] 验证器原始结果:`);
+  params.logger?.warn(`[chapter-truth-validation] [DEBUG] validation.passed=${validation.passed}, severity=${validation.severity}, warnings=${validation.warnings.length}`);
+
   if (validation.warnings.length > 0) {
     params.logWarn({
       zh: `状态校验：第${params.chapterNumber}章发现 ${validation.warnings.length} 条警告`,
@@ -102,12 +107,41 @@ export async function validateChapterTruthPersistence(params: {
       logger: params.logger,
     });
 
+    // 添加调试日志：恢复逻辑分析
+    params.logger?.warn(`[chapter-truth-validation] [DEBUG] 恢复逻辑分析:`);
+    params.logger?.warn(`[chapter-truth-validation] [DEBUG] recovery.kind=${recovery.kind}`);
+    
     if (recovery.kind === "recovered") {
-      persistenceOutput = recovery.output;
-      validation = recovery.validation;
+      params.logger?.warn(`[chapter-truth-validation] [DEBUG] 验证结果被覆盖: 原始validation.passed=${validation.passed} → 恢复后validation.passed=${recovery.validation.passed}`);
+      
+      // 🔧 修复：检查重试后的验证结果
+      if (recovery.validation.passed) {
+        // 重试成功，验证通过
+        persistenceOutput = recovery.output;
+        validation = recovery.validation;
+        params.logger?.warn(`[chapter-truth-validation] [DEBUG] 重试成功，验证通过`);
+      } else {
+        // 重试失败，验证仍然不通过
+        params.logger?.warn(`[chapter-truth-validation] [DEBUG] 重试失败，验证仍然不通过，设置state-degraded`);
+        chapterStatus = "state-degraded";
+        degradedIssues = [];
+        persistenceOutput = buildStateDegradedPersistenceOutput({
+          output: persistenceOutput,
+          oldState: params.previousTruth.oldState,
+          oldHooks: params.previousTruth.oldHooks,
+          oldLedger: params.previousTruth.oldLedger,
+        });
+        auditResult = {
+          ...auditResult,
+          issues: [...auditResult.issues],
+        };
+      }
     } else {
+      params.logger?.warn(`[chapter-truth-validation] [DEBUG] 设置state-degraded状态: chapterStatus=state-degraded`);
       chapterStatus = "state-degraded";
-      degradedIssues = recovery.issues;
+      // 🔧 修复：degraded情况下recovery没有validation属性，需要从原始validation获取warnings
+      const degradedIssuesFromRecovery = buildStateDegradedIssues(validation.warnings, params.language);
+      degradedIssues = degradedIssuesFromRecovery;
       persistenceOutput = buildStateDegradedPersistenceOutput({
         output: persistenceOutput,
         oldState: params.previousTruth.oldState,
@@ -116,10 +150,14 @@ export async function validateChapterTruthPersistence(params: {
       });
       auditResult = {
         ...auditResult,
-        issues: [...auditResult.issues, ...recovery.issues],
+        issues: [...auditResult.issues, ...degradedIssuesFromRecovery],
       };
     }
   }
+
+  // 添加调试日志：最终结果分析
+  params.logger?.warn(`[chapter-truth-validation] [DEBUG] 最终返回结果:`);
+  params.logger?.warn(`[chapter-truth-validation] [DEBUG] 最终validation.passed=${validation.passed}, chapterStatus=${chapterStatus}`);
 
   return {
     validation,
