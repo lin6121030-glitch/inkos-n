@@ -112,9 +112,12 @@ export type NewHookCandidate = z.infer<typeof NewHookCandidateSchema>;
 
 const LooseOpSchema = z.record(z.string(), z.unknown());
 
+export const NumericalFactsSchema = z.record(z.string(), z.string()).optional();
+
 export const RuntimeStateDeltaSchema = z.object({
   chapter: z.number().int().min(1),
   currentStatePatch: CurrentStatePatchSchema.optional(),
+  numericalFacts: NumericalFactsSchema,
   hookOps: HookOpsSchema.default({
     upsert: [],
     mention: [],

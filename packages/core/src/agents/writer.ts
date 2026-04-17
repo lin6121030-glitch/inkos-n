@@ -90,7 +90,7 @@ export interface WriteChapterOutput {
   readonly postWriteErrors: ReadonlyArray<PostWriteViolation>;
   readonly postWriteWarnings: ReadonlyArray<PostWriteViolation>;
   readonly hookHealthIssues?: ReadonlyArray<{
-    readonly severity: "critical" | "warning" | "concern" | "info" | "suggestion";
+    readonly severity: "critical" | "fail" | "warning" | "concern" | "info" | "suggestion";
     readonly category: string;
     readonly description: string;
     readonly suggestion: string;
@@ -601,7 +601,10 @@ export class WriterAgent extends BaseAgent {
       runtimeStateSnapshot?: RuntimeStateSnapshot;
     };
     try {
-      const deltaOutput = parseSettlerDeltaOutput(response.content);
+      const deltaOutput = parseSettlerDeltaOutput(response.content, {
+        info: (msg) => this.ctx.logger?.info(msg),
+        warn: (msg) => this.ctx.logger?.warn(msg),
+      });
       mergedSettlement = {
         postSettlement: deltaOutput.postSettlement,
         runtimeStateDelta: deltaOutput.runtimeStateDelta,

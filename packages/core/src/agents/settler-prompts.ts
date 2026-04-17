@@ -73,6 +73,8 @@ ${buildSettlerOutputFormat(genreProfile)}
 2. 正文中的每一个事实性变化都必须反映在对应的追踪文件中
 3. 不要遗漏细节：数值变化、位置变化、关系变化、信息变化都要记录
 4. 角色交互矩阵中的"信息边界"要准确——角色只知道他在场时发生的事
+5. 只有正文中明确写到的数值变化才记录，如果正文没有提到，不要推测或假设变化
+
 
 ## 铁律：只记录正文中实际发生的事（严格执行）
 
@@ -106,13 +108,24 @@ function buildSettlerOutputFormat(gp: GenreProfile): string {
     "currentAlliances": "可选",
     "currentConflict": "可选"
   },
+"numericalFacts": {
+    "只标记哪些数值发生了变化，不要计算具体新值",
+    "格式：数值类型: '需要更新' 或 '不变'",
+    "示例": {
+      "灵石余额": "需要更新",
+      "修为": "不变",
+      "直播间观看人数": "需要更新",
+      "债务": "不变"
+    },
+    "系统会根据正文自动计算正确的值"
+  },
   "hookOps": {
     "upsert": [
       {
         "hookId": "mentor-oath",
         "startChapter": 8,
         "type": "relationship",
-        "status": "progressing",
+        "status": "progressing  // 只能是 open/progressing/deferred/resolved，不能写其他值",
         "lastAdvancedChapter": 12,
         "expectedPayoff": "揭开师债真相",
         "payoffTiming": "slow-burn",
@@ -156,7 +169,9 @@ function buildSettlerOutputFormat(gp: GenreProfile): string {
 5. 如果旧 hook 只是被提到、没有真实状态变化，把它放进 mention，不要更新 lastAdvancedChapter
 6. 如果本章推进了旧 hook，lastAdvancedChapter 必须等于当前章号
 7. 如果回收或延后 hook，必须放在 resolve / defer 数组里
-8. chapterSummary.chapter 必须等于当前章节号`;
+8. chapterSummary.chapter 必须等于当前章节号
+9. 数值类事实必须更新：正文中有数值变化时必须在 numericalFacts 中记录
+10. hook status 只能是 open/progressing/deferred/resolved，不能写 active/pending/closed 等其他值`;
 }
 
 export function buildSettlerUserPrompt(params: {
