@@ -155,7 +155,7 @@ export async function runChapterReviewCycle(params: {
   while (!auditResult.passed && revisionAttempts < MAX_REVISION_ATTEMPTS) {
     const criticalIssues = auditResult.issues.filter((issue) => issue.severity === "critical");
     const warningConcernIssues = auditResult.issues.filter(issue =>
-      issue.severity === "warning" || issue.severity === "concern"
+      issue.severity === "warning" || issue.severity === "concern" || issue.severity === "fail"
     );
     const warningConcernCount = warningConcernIssues.length;
 
@@ -170,8 +170,8 @@ export async function runChapterReviewCycle(params: {
 
     // Log the analysis for debugging
     params.logWarn({
-      zh: `audit-failed analysis (attempt ${revisionAttempts + 1}/${MAX_REVISION_ATTEMPTS}): critical=${criticalIssues.length}, warning+concern=${warningConcernCount} (threshold=3), suggestions=${suggestionCount}`,
-      en: `audit-failed analysis (attempt ${revisionAttempts + 1}/${MAX_REVISION_ATTEMPTS}): critical=${criticalIssues.length}, warning+concern=${warningConcernCount} (threshold=3), suggestions=${suggestionCount}`
+      zh: `audit-failed analysis (attempt ${revisionAttempts + 1}/${MAX_REVISION_ATTEMPTS}): critical=${criticalIssues.length}, warning+concern+fail=${warningConcernCount} (threshold=3), suggestions=${suggestionCount}`,
+      en: `audit-failed analysis (attempt ${revisionAttempts + 1}/${MAX_REVISION_ATTEMPTS}): critical=${criticalIssues.length}, warning+concern+fail=${warningConcernCount} (threshold=3), suggestions=${suggestionCount}`
     });
 
     // Check if we should trigger revision
@@ -234,15 +234,15 @@ export async function runChapterReviewCycle(params: {
         });
       }
     } else if (warningConcernCount > 3) {
-      params.logStage({ zh: "auto-revising warning issues (count exceeded)", en: "auto-revising warning issues (count exceeded)" });
+      params.logStage({ zh: "auto-revising warning/concern/fail issues (count exceeded)", en: "auto-revising warning/concern/fail issues (count exceeded)" });
       params.logWarn({
-        zh: `warning+concern count (${warningConcernCount}) exceeds threshold (3), triggering auto-revision (attempt ${revisionAttempts}/${MAX_REVISION_ATTEMPTS})`,
-        en: `warning+concern count (${warningConcernCount}) exceeds threshold (3), triggering auto-revision (attempt ${revisionAttempts}/${MAX_REVISION_ATTEMPTS})`
+        zh: `warning+concern+fail count (${warningConcernCount}) exceeds threshold (3), triggering auto-revision (attempt ${revisionAttempts}/${MAX_REVISION_ATTEMPTS})`,
+        en: `warning+concern+fail count (${warningConcernCount}) exceeds threshold (3), triggering auto-revision (attempt ${revisionAttempts}/${MAX_REVISION_ATTEMPTS})`
       });
 
-      // Pass warning, concern, and suggestion issues to reviser
+      // Pass warning, concern, fail, and suggestion issues to reviser
       const issuesToFix = auditResult.issues.filter(issue =>
-        issue.severity === "warning" || issue.severity === "concern" || issue.severity === "suggestion"
+        issue.severity === "warning" || issue.severity === "concern" || issue.severity === "fail" || issue.severity === "suggestion"
       );
       const reviseOutput = await reviser.reviseChapter(
         params.bookDir,
@@ -293,8 +293,8 @@ export async function runChapterReviewCycle(params: {
         });
 
         params.logWarn({
-          zh: `警告修复完成：新的警告+关注数量 = ${auditResult.issues.filter(i => i.severity === "warning" || i.severity === "concern").length}`,
-          en: `warning-revision completed: new warning+concern count = ${auditResult.issues.filter(i => i.severity === "warning" || i.severity === "concern").length}`
+          zh: `警告修复完成：新的警告+关注+fail数量 = ${auditResult.issues.filter(i => i.severity === "warning" || i.severity === "concern" || i.severity === "fail").length}`,
+          en: `warning-revision completed: new warning+concern+fail count = ${auditResult.issues.filter(i => i.severity === "warning" || i.severity === "concern" || i.severity === "fail").length}`
         });
       }
     }

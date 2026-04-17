@@ -290,6 +290,8 @@ describe("runtime-state-store memory helpers", () => {
       language: "en",
       delta: {
         chapter: 12,
+        currentStatePatch: {},
+        numericalFacts: {},
         hookOps: {
           upsert: [],
           mention: [],

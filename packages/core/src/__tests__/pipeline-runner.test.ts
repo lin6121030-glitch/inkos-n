@@ -2064,6 +2064,7 @@ describe("PipelineRunner", () => {
             currentGoal: "Follow the debt through the river-port ledger.",
             currentConflict: "Guild pressure keeps pulling against the debt trail.",
           },
+          numericalFacts: {},
           hookOps: {
             upsert: [
               {
@@ -2171,6 +2172,8 @@ describe("PipelineRunner", () => {
         postWriteWarnings: [],
         runtimeStateDelta: {
           chapter: 0,
+          currentStatePatch: {},
+          numericalFacts: {},
           hookOps: {
             upsert: [],
             resolve: [],
@@ -2245,6 +2248,8 @@ describe("PipelineRunner", () => {
         postWriteWarnings: [],
         runtimeStateDelta: {
           chapter: 1,
+          currentStatePatch: {},
+          numericalFacts: {},
           hookOps: {
             upsert: [
               {

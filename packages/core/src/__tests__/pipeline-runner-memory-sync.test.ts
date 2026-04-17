@@ -219,6 +219,7 @@ describe("PipelineRunner structured-state memory sync", () => {
           currentGoal: "Trace the debt through the watchtower archive.",
           currentConflict: "Guild pressure keeps colliding with the debt trail.",
         },
+        numericalFacts: {},
         hookOps: {
           upsert: [
             {

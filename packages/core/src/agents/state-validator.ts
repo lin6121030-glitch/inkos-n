@@ -375,8 +375,8 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
     fixSuggestions: FixSuggestion[];
   } {
     // 添加调试日志：显示LLM原始输出
-    this.log?.info(`[state-validator] [DEBUG] ${category} Round LLM原始输出:`);
-    this.log?.info(`[state-validator] [DEBUG] ${JSON.stringify(content)}`);
+    //this.log?.info(`[state-validator] [DEBUG] ${category} Round LLM原始输出:`);
+    //this.log?.info(`[state-validator] [DEBUG] ${JSON.stringify(content)}`);
     
     // Enhanced THINK tag filtering - handle multiple variations
     let filteredContent = content
@@ -581,7 +581,7 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
       ...results.timeline.fixSuggestions
     ];
     
-    this.log?.info(`[state-validator] [DEBUG] 过滤PASS项后的warnings数量: ${allWarnings.length}`);
+    this.log?.info(`[state-validator] [DEBUG] 过滤PASS项后的未通过的项数量: ${allWarnings.length}`);
     allWarnings.forEach(w => this.log?.info(`[state-validator] [DEBUG]   [${w.severity}] [${w.category}] ${w.description}`));
 
     // 计算WARNING和CONCERN数量，超过阈值则审计失败
@@ -717,7 +717,7 @@ Output format: VERDICT_PASS or VERDICT_WARNING or VERDICT_CONCERN or VERDICT_FAI
         warnings: (parsed.warnings ?? []).map((w) => ({
           category: w.category ?? "unknown",
           description: w.description ?? "",
-          severity: ValidationSeverity.WARNING
+          severity: parsed.passed ? ValidationSeverity.WARNING : ValidationSeverity.FAIL
         })),
         passed: parsed.passed,
         severity: parsed.passed ? ValidationSeverity.PASS : ValidationSeverity.FAIL

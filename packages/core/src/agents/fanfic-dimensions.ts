@@ -2,7 +2,7 @@ import type { FanficMode } from "../models/book.js";
 
 export interface FanficDimensionConfig {
   readonly activeIds: ReadonlyArray<number>;
-  readonly severityOverrides: ReadonlyMap<number, "critical" | "warning" | "info">;
+  readonly severityOverrides: ReadonlyMap<number, "critical" | "fail" | "warning" | "info">;
   readonly deactivatedIds: ReadonlyArray<number>;
   readonly notes: ReadonlyMap<number, string>;
 }
@@ -36,7 +36,7 @@ export const FANFIC_DIMENSIONS: ReadonlyArray<{
 ];
 
 // Mode → dimension severity mapping
-const SEVERITY_MAP: Record<FanficMode, Record<number, "critical" | "warning" | "info">> = {
+const SEVERITY_MAP: Record<FanficMode, Record<number, "critical" | "fail" | "warning" | "info">> = {
   canon: { 34: "critical", 35: "critical", 36: "warning", 37: "critical" },
   au:    { 34: "critical", 35: "info",     36: "warning", 37: "info" },
   ooc:   { 34: "info",     35: "warning",  36: "warning", 37: "info" },
@@ -54,7 +54,7 @@ export function getFanficDimensionConfig(
   _allowedDeviations: ReadonlyArray<string> = [],
 ): FanficDimensionConfig {
   const severityMap = SEVERITY_MAP[mode];
-  const severityOverrides = new Map<number, "critical" | "warning" | "info">();
+  const severityOverrides = new Map<number, "critical" | "fail" | "warning" | "info">();
   const notes = new Map<number, string>();
 
   for (const dim of FANFIC_DIMENSIONS) {
@@ -62,8 +62,9 @@ export function getFanficDimensionConfig(
 
     const severity = severityMap[dim.id]!;
     const severityLabel = severity === "critical" ? "（严格检查）"
-      : severity === "info" ? "（仅记录，不判定失败）"
-      : "（警告级别）";
+      : severity === "fail" ? "（验证失败）"
+        : severity === "info" ? "（仅记录，不判定失败）"
+          : "（警告级别）";
     notes.set(dim.id, `${dim.baseNote} ${severityLabel}`);
   }
 

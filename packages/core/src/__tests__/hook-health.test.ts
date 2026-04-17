@@ -18,6 +18,8 @@ function createHook(overrides: Partial<HookRecord> = {}): HookRecord {
 function createDelta(overrides: Partial<RuntimeStateDelta> = {}): RuntimeStateDelta {
   return {
     chapter: overrides.chapter ?? 20,
+    currentStatePatch: overrides.currentStatePatch ?? {},
+    numericalFacts: overrides.numericalFacts ?? {},
     hookOps: {
       upsert: overrides.hookOps?.upsert ?? [],
       mention: overrides.hookOps?.mention ?? [],
