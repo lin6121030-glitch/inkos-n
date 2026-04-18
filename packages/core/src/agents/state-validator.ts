@@ -120,7 +120,7 @@ export class StateValidatorAgent extends BaseAgent {
       messages.push({ role: "assistant", content: "状态验证完成" });
     } catch (error) {
       this.log?.warn(`State Round failed: ${error}`);
-      stateResult = { passed: true, severity: ValidationSeverity.PASS, warnings: [], fixSuggestions: [] };
+      stateResult = { passed: false, severity: ValidationSeverity.FAIL, warnings: [{ category: "state-validation", description: `State validation output format error: ${error}`, severity: ValidationSeverity.FAIL }], fixSuggestions: [] };
       messages.push({ role: "assistant", content: "状态验证失败" });
     }
 
@@ -131,7 +131,7 @@ export class StateValidatorAgent extends BaseAgent {
       messages.push({ role: "assistant", content: "伏笔验证完成" });
     } catch (error) {
       this.log?.warn(`Hooks Round failed: ${error}`);
-      hookResult = { passed: true, severity: ValidationSeverity.PASS, warnings: [], fixSuggestions: [] };
+      hookResult = { passed: false, severity: ValidationSeverity.FAIL, warnings: [{ category: "hooks-validation", description: `Hooks validation output format error: ${error}`, severity: ValidationSeverity.FAIL }], fixSuggestions: [] };
       messages.push({ role: "assistant", content: "伏笔验证失败" });
     }
 

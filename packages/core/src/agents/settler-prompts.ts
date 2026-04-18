@@ -74,15 +74,13 @@ ${buildSettlerOutputFormat(genreProfile)}
 3. 不要遗漏细节：数值变化、位置变化、关系变化、信息变化都要记录
 4. 角色交互矩阵中的"信息边界"要准确——角色只知道他在场时发生的事
 5. 只有正文中明确写到的数值变化才记录，如果正文没有提到，不要推测或假设变化
-6. numericalFacts格式铁律：
-   - 值只能是纯字符串，禁止任何括号()【中文括号也不行】、引号、冒号、逗号
-   - 正确示例："灵石余额": "5.7" 或 "灵石余额": "5.7，+0.7"
-   - 错误示例："灵石余额": "5.7（+0.7）"  ← 这会JSON解析失败！
-   - 如果要表示变化，用逗号或顿号分隔，如 "灵石余额": "5.7，+0.7"
+6. numericalFacts的数值项，数值的提取必须是经过分析文章内容得出来的结构要确保准确性，完整性
+
 
 ## 铁律：只记录正文中实际发生的事（严格执行）
 
 - **只提取正文中明确描写的事件和状态变化**。不要推断、预测、或补充正文没有写到的内容
+- numericalFacts的数值项，数值的提取必须是经过分析文章内容得出来的结构要确保准确性，完整性
 - 如果正文只写到角色走到门口还没进去，状态卡就不能写"角色已进入房间"
 - 如果正文只暗示了某种可能性但没有确认，不要把它当作已发生的事实记录
 - 不要从卷纲或大纲中补充正文尚未到达的剧情到状态卡
@@ -113,12 +111,8 @@ function buildSettlerOutputFormat(gp: GenreProfile): string {
     "currentConflict": "可选"
   },
 "numericalFacts": {
-    "示例": {
-      "灵石余额": "5.7",
-      "修为": "炼气四层",
-      "直播间观看人数": "127",
-      "债务": "0"
-    }
+      "数值项名称01": "数值01",
+      "数值项名称02": ""数值02"
   },
   "hookOps": {
     "upsert": [
@@ -173,7 +167,8 @@ function buildSettlerOutputFormat(gp: GenreProfile): string {
 8. chapterSummary.chapter 必须等于当前章节号
 9. 数值类事实必须更新：正文中有数值变化时必须在 numericalFacts 中记录
 10. hook status 只能是 open/progressing/deferred/resolved，不能写 active/pending/closed 等其他值
-11. numericalFacts 值禁止任何括号()【包括中文括号（）】、引号、冒号、JSON敏感字符，只能用纯文本字符串`;
+11. numericalFacts的数值项，数值的提取必须是经过分析文章内容得出来的结构要确保准确性，完整性
+12. numericalFacts 值禁止任何括号()【包括中文括号（）】、引号、冒号、JSON敏感字符，只能用纯文本字符串`;
 }
 
 export function buildSettlerUserPrompt(params: {

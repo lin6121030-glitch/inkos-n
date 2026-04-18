@@ -498,6 +498,12 @@ export class WriterAgent extends BaseAgent {
       input.allowReapply,
     );
 
+    const finalRuntimeStateDelta = runtimeStateArtifacts?.resolvedDelta ?? settlement.runtimeStateDelta;
+    this.logInfo(resolvedLanguage, {
+      zh: `[settleChapterState] 返回前检查: runtimeStateDelta有=${!!finalRuntimeStateDelta}, numericalFacts=${JSON.stringify(finalRuntimeStateDelta?.numericalFacts)}`,
+      en: `[settleChapterState] pre-return check: runtimeStateDelta exists=${!!finalRuntimeStateDelta}, numericalFacts=${JSON.stringify(finalRuntimeStateDelta?.numericalFacts)}`,
+    });
+
     return {
       chapterNumber: input.chapterNumber,
       title: input.title,
@@ -508,7 +514,7 @@ export class WriterAgent extends BaseAgent {
       ),
       preWriteCheck: "",
       postSettlement: settlement.postSettlement,
-      runtimeStateDelta: runtimeStateArtifacts?.resolvedDelta ?? settlement.runtimeStateDelta,
+      runtimeStateDelta: finalRuntimeStateDelta,
       runtimeStateSnapshot: runtimeStateArtifacts?.snapshot ?? settlement.runtimeStateSnapshot,
       updatedState: runtimeStateArtifacts?.currentStateMarkdown ?? settlement.updatedState,
       updatedLedger: settlement.updatedLedger,
@@ -732,12 +738,24 @@ export class WriterAgent extends BaseAgent {
     try {
       const files = await readdir(chaptersDir);
       chapterFileExists = files.some(f => f.startsWith(chNumStr + "_"));
-    } catch {
+      this.logInfo(language, {
+        zh: `[数值快照] 检测章节文件: 章节目录=${chaptersDir}, 文件列表=${JSON.stringify(files)}, 匹配结果=${chapterFileExists}`,
+        en: `[snapshot] checking chapter files: dir=${chaptersDir}, files=${JSON.stringify(files)}, exists=${chapterFileExists}`,
+      });
+    } catch (error) {
+      this.logInfo(language, {
+        zh: `[数值快照] 章节目录不存在或无法读取: ${error}`,
+        en: `[snapshot] chapter dir not accessible: ${error}`,
+      });
       chapterFileExists = false;
     }
 
     if (chapterFileExists) {
       const snapshotManager = new SnapshotManager(runtimeDir);
+      this.logInfo(language, {
+        zh: `[数值快照] 检测到重写，删除第${output.chapterNumber}章及后续快照`,
+        en: `[snapshot] rewrite detected, deleting snapshots from chapter ${output.chapterNumber}`,
+      });
       await snapshotManager.deleteFrom(output.chapterNumber);
     }
 
@@ -784,6 +802,11 @@ export class WriterAgent extends BaseAgent {
     // 不管 runtimeStateDelta 是否存在，都尝试保存数值快照
     // 优先从 runtimeStateDelta 获取数值
     let numericalFacts = output.runtimeStateDelta?.numericalFacts;
+
+    this.logInfo(language, {
+      zh: `[saveChapter] 数值快照入口检查: output.runtimeStateDelta存在=${!!output.runtimeStateDelta}, numericalFacts=${JSON.stringify(numericalFacts || null)}`,
+      en: `[saveChapter] snapshot entry check: runtimeStateDelta exists=${!!output.runtimeStateDelta}, numericalFacts=${JSON.stringify(numericalFacts || null)}`,
+    });
 
     // 如果没有，从 currentStatePatch 获取
     if (!numericalFacts && output.runtimeStateDelta?.currentStatePatch) {

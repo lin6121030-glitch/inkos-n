@@ -163,14 +163,15 @@ export function buildStateDegradedPersistenceOutput(params: {
   readonly oldHooks: string;
   readonly oldLedger: string;
 }): WriteChapterOutput {
+  // 🔧 修复：保留原始 runtimeStateDelta，不要清空
   return {
     ...params.output,
-    runtimeStateDelta: undefined,
-    runtimeStateSnapshot: undefined,
+    runtimeStateDelta: params.output.runtimeStateDelta,
+    runtimeStateSnapshot: params.output.runtimeStateSnapshot,
     updatedState: params.oldState,
     updatedLedger: params.oldLedger,
     updatedHooks: params.oldHooks,
-    updatedChapterSummaries: undefined,
+    updatedChapterSummaries: params.output.updatedChapterSummaries,
   };
 }
 

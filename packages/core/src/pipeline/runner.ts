@@ -1041,6 +1041,25 @@ export class PipelineRunner {
       }
       await this.syncLegacyStructuredStateFromMarkdown(bookDir, targetChapter);
 
+      // 🔧 修复：重写后调用 settleChapterState 生成 numericalFacts 并保存数值快照
+      if (gp.numericalSystem) {
+        const writer = new WriterAgent(this.agentCtxFor("writer", bookId));
+        const settleOutput = await writer.settleChapterState({
+          book,
+          bookDir,
+          chapterNumber: targetChapter,
+          title: chapterMeta.title,
+          content: normalizedRevision.content,
+          allowReapply: true,
+        });
+        // 保存数值快照
+        await writer.saveChapter(bookDir, settleOutput, gp.numericalSystem, reviseLang);
+        this.logInfo(stageLanguage, {
+          zh: `[重写] 第${targetChapter}章数值快照已更新: ${JSON.stringify(settleOutput.runtimeStateDelta?.numericalFacts || {})}`,
+          en: `[rewrite] chapter ${targetChapter} snapshot updated: ${JSON.stringify(settleOutput.runtimeStateDelta?.numericalFacts || {})}`,
+        });
+      }
+
       // Update index
       const updatedIndex = index.map((ch) =>
         ch.number === targetChapter
@@ -1570,6 +1589,11 @@ export class PipelineRunner {
     if (!validation.passed) {
       throw new Error(`State repair still failed for chapter ${targetChapter}.`);
     }
+
+    this.logWarn(pipelineLang, {
+      zh: `[runner] saveChapter前检查: repairedOutput.runtimeStateDelta存在=${!!repairedOutput.runtimeStateDelta}, numericalFacts=${JSON.stringify(repairedOutput.runtimeStateDelta?.numericalFacts || null)}`,
+      en: `[runner] pre-saveChapter check: runtimeStateDelta exists=${!!repairedOutput.runtimeStateDelta}, numericalFacts=${JSON.stringify(repairedOutput.runtimeStateDelta?.numericalFacts || null)}`,
+    });
 
     await writer.saveChapter(bookDir, repairedOutput, gp.numericalSystem, pipelineLang);
     await writer.saveNewTruthFiles(bookDir, repairedOutput, pipelineLang);

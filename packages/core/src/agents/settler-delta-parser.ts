@@ -57,7 +57,7 @@ export function parseSettlerDeltaOutput(content: string, logger?: { info: (msg: 
     rawDelta = content;
   }
 
-  logger?.info(`[Settler解析] RUNTIME_STATE_DELTA 原始内容:\n${rawDelta.slice(0, 1500)}`);
+  //logger?.info(`[Settler解析] RUNTIME_STATE_DELTA 原始内容:\n${rawDelta.slice(0, 1500)}`);
 
   const jsonPayload = stripCodeFence(rawDelta);
   const sanitized = sanitizeJSON(jsonPayload);
