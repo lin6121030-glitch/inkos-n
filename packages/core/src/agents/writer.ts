@@ -827,7 +827,7 @@ export class WriterAgent extends BaseAgent {
         en: `[snapshot] saving chapter${currentCh}: ${JSON.stringify(numericalFacts)}`,
       });
       await snapshotManager.save(numericalFacts, currentCh);
-    } else {
+} else {
       // 无 numericalFacts 时，复制上一章的内容
       const prevCh = currentCh - 1;
       if (prevCh >= 1) {
