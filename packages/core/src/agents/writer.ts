@@ -34,6 +34,7 @@ import type { RuntimeStateSnapshot } from "../state/state-reducer.js";
 import { parsePendingHooksMarkdown } from "../utils/memory-retrieval.js";
 import { analyzeHookHealth } from "../utils/hook-health.js";
 import { buildEnglishVarianceBrief } from "../utils/long-span-fatigue.js";
+import { SnapshotManager } from "../utils/snapshot-manager.js";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -117,6 +118,29 @@ export class WriterAgent extends BaseAgent {
 
   async writeChapter(input: WriteChapterInput): Promise<WriteChapterOutput> {
     const { book, bookDir, chapterNumber } = input;
+
+    const runtimeDir = join(bookDir, "story/runtime");
+    const snapshotManager = new SnapshotManager(runtimeDir);
+
+    // 读取前一章的快照
+    const prevChapter = chapterNumber - 1;
+    let snapshotContent = "";
+    if (prevChapter >= 1) {
+      const prevSnapshot = await snapshotManager.load(prevChapter);
+      if (prevSnapshot && Object.keys(prevSnapshot.values).length > 0) {
+        snapshotContent = await snapshotManager.formatForPrompt();
+        this.logInfo(book.language ?? "zh", {
+          zh: `[数值快照] 读取第${prevChapter}章: ${snapshotContent.slice(0, 300)}`,
+          en: `[snapshot] reading chapter${prevChapter}: ${snapshotContent.slice(0, 300)}`,
+        });
+      }
+    }
+    if (!snapshotContent) {
+      this.logInfo(book.language ?? "zh", {
+        zh: `[数值快照] 第${prevChapter >= 1 ? prevChapter : chapterNumber}章无快照`,
+        en: `[snapshot] chapter${prevChapter >= 1 ? prevChapter : chapterNumber} no snapshot`,
+      });
+    }
 
     const [
       storyBible, volumeOutline, styleGuide, currentState, ledger, hooks,
@@ -233,6 +257,7 @@ export class WriterAgent extends BaseAgent {
             relevantSummaries,
             parentCanon: hasParentCanon ? parentCanon : undefined,
             language: book.language ?? genreProfile.language,
+            snapshotContent,
           });
         })();
 
@@ -599,6 +624,16 @@ export class WriterAgent extends BaseAgent {
     let mergedSettlement: ReturnType<typeof parseSettlementOutput> & {
       runtimeStateDelta?: RuntimeStateDelta;
       runtimeStateSnapshot?: RuntimeStateSnapshot;
+    } = {
+      postSettlement: "",
+      runtimeStateDelta: undefined,
+      updatedState: "",
+      updatedLedger: "",
+      updatedHooks: "",
+      chapterSummary: "",
+      updatedSubplots: "",
+      updatedEmotionalArcs: "",
+      updatedCharacterMatrix: "",
     };
     try {
       const deltaOutput = parseSettlerDeltaOutput(response.content, {
@@ -616,11 +651,42 @@ export class WriterAgent extends BaseAgent {
         updatedEmotionalArcs: "",
         updatedCharacterMatrix: "",
       };
-    } catch {
-      const settlement = parseSettlementOutput(response.content, params.genreProfile);
-      mergedSettlement = governedControlBlock
-        ? {
+    } catch (err) {
+      const retryable = (err as any).canRetry && (err as any).rawContent;
+      if (retryable) {
+        this.logInfo(resolvedLang, {
+          zh: "JSON格式错误，尝试让LLM修复...",
+          en: "JSON format error, trying to fix with LLM...",
+        });
+        const fixed = await this.fixJSONWithLLM((err as any).rawContent, resolvedLang);
+        const deltaOutput = parseSettlerDeltaOutput(fixed, {
+          info: (msg) => this.ctx.logger?.info(msg),
+          warn: (msg) => this.ctx.logger?.warn(msg),
+        });
+        mergedSettlement = {
+          postSettlement: deltaOutput.postSettlement,
+          runtimeStateDelta: deltaOutput.runtimeStateDelta,
+          updatedState: "",
+          updatedLedger: "",
+          updatedHooks: "",
+          chapterSummary: "",
+          updatedSubplots: "",
+          updatedEmotionalArcs: "",
+          updatedCharacterMatrix: "",
+        };
+      } else if (!retryable) {
+        const settlement = parseSettlementOutput(response.content, params.genreProfile);
+
+        // 尝试从 UPDATED_STATE 提取 numericalFacts
+        const extractedFacts = this.extractNumericalFactsFromState(settlement.updatedState);
+        const extractedDelta = extractedFacts
+          ? { chapter: params.chapterNumber, numericalFacts: extractedFacts } as RuntimeStateDelta
+          : undefined;
+
+        if (governedControlBlock) {
+          mergedSettlement = {
             ...settlement,
+            runtimeStateDelta: extractedDelta as RuntimeStateDelta,
             updatedHooks: mergeTableMarkdownByKey(params.originalHooks, settlement.updatedHooks, [0]),
             updatedSubplots: settlement.updatedSubplots
               ? mergeTableMarkdownByKey(params.originalSubplots, settlement.updatedSubplots, [0])
@@ -631,8 +697,14 @@ export class WriterAgent extends BaseAgent {
             updatedCharacterMatrix: settlement.updatedCharacterMatrix
               ? mergeCharacterMatrixMarkdown(params.originalCharacterMatrix, settlement.updatedCharacterMatrix)
               : settlement.updatedCharacterMatrix,
-          }
-        : settlement;
+          };
+        } else {
+          mergedSettlement = {
+            ...settlement,
+            runtimeStateDelta: extractedDelta as RuntimeStateDelta,
+          };
+        }
+      }
     }
 
     return {
@@ -649,10 +721,27 @@ export class WriterAgent extends BaseAgent {
   ): Promise<void> {
     const chaptersDir = join(bookDir, "chapters");
     const storyDir = join(bookDir, "story");
-    await mkdir(chaptersDir, { recursive: true });
+    const runtimeDir = join(bookDir, "story/runtime");
+    const chNumStr = String(output.chapterNumber).padStart(4, "0");
 
-    const paddedNum = String(output.chapterNumber).padStart(4, "0");
-    const filename = `${paddedNum}_${this.sanitizeFilename(output.title)}.md`;
+    await mkdir(chaptersDir, { recursive: true });
+    await mkdir(runtimeDir, { recursive: true });
+
+    // 检查是否是重写（章节文件已存在），若是则删除当前章及后续快照
+    let chapterFileExists = false;
+    try {
+      const files = await readdir(chaptersDir);
+      chapterFileExists = files.some(f => f.startsWith(chNumStr + "_"));
+    } catch {
+      chapterFileExists = false;
+    }
+
+    if (chapterFileExists) {
+      const snapshotManager = new SnapshotManager(runtimeDir);
+      await snapshotManager.deleteFrom(output.chapterNumber);
+    }
+
+    const filename = `${chNumStr}_${this.sanitizeFilename(output.title)}.md`;
 
     const heading = language === "en"
       ? `# Chapter ${output.chapterNumber}: ${output.title}`
@@ -691,6 +780,71 @@ export class WriterAgent extends BaseAgent {
     }
 
     await Promise.all(writes);
+
+    // 不管 runtimeStateDelta 是否存在，都尝试保存数值快照
+    // 优先从 runtimeStateDelta 获取数值
+    let numericalFacts = output.runtimeStateDelta?.numericalFacts;
+
+    // 如果没有，从 currentStatePatch 获取
+    if (!numericalFacts && output.runtimeStateDelta?.currentStatePatch) {
+      numericalFacts = {};
+      const patch = output.runtimeStateDelta.currentStatePatch;
+      if (patch.protagonistState) numericalFacts["主角状态"] = patch.protagonistState;
+      if (patch.currentLocation) numericalFacts["当前位置"] = patch.currentLocation;
+      if (patch.currentConstraint) numericalFacts["当前限制"] = patch.currentConstraint;
+    }
+
+    // 如果还没有，从当前状态文件读取
+    if (!numericalFacts || Object.keys(numericalFacts).length === 0) {
+      try {
+        const currentStateContent = await readFile(join(storyDir, "current_state.md"), "utf-8");
+        const lines = currentStateContent.split("\n").filter(l => l.trim() && !l.startsWith("#") && !l.startsWith("|"));
+        numericalFacts = {};
+        for (const line of lines) {
+          const idx = line.indexOf(":");
+          if (idx > 0) {
+            const key = line.slice(0, idx).trim();
+            const val = line.slice(idx + 1).trim();
+            if (key && val) numericalFacts[key] = val;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    this.logInfo(language, {
+      zh: `[数值快照] 保存数值: ${JSON.stringify(numericalFacts || {})}`,
+      en: `[snapshot] saving: ${JSON.stringify(numericalFacts || {})}`,
+    });
+
+    const snapshotManager = new SnapshotManager(runtimeDir);
+    const currentCh = output.chapterNumber;
+
+    if (numericalFacts && Object.keys(numericalFacts).length > 0) {
+      this.logInfo(language, {
+        zh: `[数值快照] 保存第${currentCh}章: ${JSON.stringify(numericalFacts)}`,
+        en: `[snapshot] saving chapter${currentCh}: ${JSON.stringify(numericalFacts)}`,
+      });
+      await snapshotManager.save(numericalFacts, currentCh);
+    } else {
+      // 无 numericalFacts 时，复制上一章的内容
+      const prevCh = currentCh - 1;
+      if (prevCh >= 1) {
+        const prevSnapshot = await snapshotManager.load(prevCh);
+        if (prevSnapshot && Object.keys(prevSnapshot.values).length > 0) {
+          this.logInfo(language, {
+            zh: `[数值快照] 第${currentCh}章使用第${prevCh}章内容`,
+            en: `[snapshot] chapter${currentCh} uses chapter${prevCh} content`,
+          });
+          await snapshotManager.save(prevSnapshot.values, currentCh);
+        } else {
+          await snapshotManager.save({}, currentCh);
+        }
+      } else {
+        await snapshotManager.save({}, currentCh);
+      }
+    }
   }
 
   private buildUserPrompt(params: {
@@ -700,55 +854,32 @@ export class WriterAgent extends BaseAgent {
     readonly currentState: string;
     readonly ledger: string;
     readonly hooks: string;
-    readonly recentChapters: string;
+    readonly recentChapters?: string;
     readonly lengthSpec: LengthSpec;
     readonly externalContext?: string;
-    readonly chapterSummaries: string;
-    readonly subplotBoard: string;
-    readonly emotionalArcs: string;
-    readonly characterMatrix: string;
+    readonly chapterSummaries?: string;
+    readonly subplotBoard?: string;
+    readonly emotionalArcs?: string;
+    readonly characterMatrix?: string;
     readonly dialogueFingerprints?: string;
     readonly relevantSummaries?: string;
     readonly parentCanon?: string;
     readonly language?: "zh" | "en";
+    readonly snapshotContent?: string;
   }): string {
-    const contextBlock = params.externalContext
-      ? `\n## 外部指令\n以下是来自外部系统的创作指令，请在本章中融入：\n\n${params.externalContext}\n`
+    const contextBlock = params.externalContext ? `## 额外上下文\n${params.externalContext}\n` : "";
+    const ledgerBlock = params.ledger ? `## 数值账本\n${params.ledger}\n` : "";
+    const summariesBlock = params.chapterSummaries ? `## 章节摘要\n${params.chapterSummaries}\n` : "";
+    const subplotBlock = params.subplotBoard ? `## 支线伏笔\n${params.subplotBoard}\n` : "";
+    const emotionalBlock = params.emotionalArcs ? `## 情绪弧线\n${params.emotionalArcs}\n` : "";
+    const matrixBlock = params.characterMatrix ? `## 人物状态矩阵\n${params.characterMatrix}\n` : "";
+    const fingerprintBlock = params.dialogueFingerprints ? `## 对话风格指纹\n${params.dialogueFingerprints}\n` : "";
+    const relevantBlock = params.relevantSummaries ? `## 相关章节摘要\n${params.relevantSummaries}\n` : "";
+    const canonBlock = params.parentCanon ? `## 原作设定\n${params.parentCanon}\n` : "";
+    const snapshotBlock = params.snapshotContent
+      ? `##Latest数值快照（必须继承，不能凭空编造）\n${params.snapshotContent}\n`
       : "";
 
-    const ledgerBlock = params.ledger
-      ? `\n## 资源账本\n${params.ledger}\n`
-      : "";
-
-    const summariesBlock = params.chapterSummaries !== "(文件尚未创建)"
-      ? `\n## 章节摘要（全部历史章节压缩上下文）\n${params.chapterSummaries}\n`
-      : "";
-
-    const subplotBlock = params.subplotBoard !== "(文件尚未创建)"
-      ? `\n## 支线进度板\n${params.subplotBoard}\n`
-      : "";
-
-    const emotionalBlock = params.emotionalArcs !== "(文件尚未创建)"
-      ? `\n## 情感弧线\n${params.emotionalArcs}\n`
-      : "";
-
-    const matrixBlock = params.characterMatrix !== "(文件尚未创建)"
-      ? `\n## 角色交互矩阵\n${params.characterMatrix}\n`
-      : "";
-
-    const fingerprintBlock = params.dialogueFingerprints
-      ? `\n## 角色对话指纹\n${params.dialogueFingerprints}\n`
-      : "";
-
-    const relevantBlock = params.relevantSummaries
-      ? `\n## 相关历史章节摘要\n${params.relevantSummaries}\n`
-      : "";
-
-    const canonBlock = params.parentCanon
-      ? `\n## 正传正典参照（番外写作专用）
-本书是番外作品。以下正典约束不可违反，角色不得引用超出其信息边界的信息。
-${params.parentCanon}\n`
-      : "";
     const lengthRequirementBlock = this.buildLengthRequirementBlock(params.lengthSpec, params.language ?? "zh");
 
     if (params.language === "en") {
@@ -759,7 +890,7 @@ ${params.currentState}
 ${ledgerBlock}
 ## Plot Threads
 ${params.hooks}
-${summariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${fingerprintBlock}${relevantBlock}${canonBlock}
+${summariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${fingerprintBlock}${relevantBlock}${canonBlock}${snapshotBlock}
 ## Recent Chapters
 ${params.recentChapters || "(This is the first chapter, no previous text)"}
 
@@ -787,7 +918,7 @@ ${params.currentState}
 ${ledgerBlock}
 ## 伏笔池
 ${params.hooks}
-${summariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${fingerprintBlock}${relevantBlock}${canonBlock}
+${summariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${fingerprintBlock}${relevantBlock}${canonBlock}${snapshotBlock}
 ## 最近章节
 ${params.recentChapters || "(这是第一章，无前文)"}
 
@@ -805,7 +936,7 @@ ${params.volumeOutline}
 
 ${lengthRequirementBlock}
 - 先输出写作自检表，再写正文
-      - 只需输出 PRE_WRITE_CHECK、CHAPTER_TITLE、CHAPTER_CONTENT 三个区块`;
+- 只需输出 PRE_WRITE_CHECK、CHAPTER_TITLE、CHAPTER_CONTENT 三个区块`;
   }
 
   private buildGovernedUserPrompt(params: {
@@ -1394,5 +1525,51 @@ ${overrides}\n`;
       .replace(/[/\\?%*:|"<>]/g, "")
       .replace(/\s+/g, "_")
       .slice(0, 50);
+  }
+
+  private async fixJSONWithLLM(rawContent: string, language: "zh" | "en"): Promise<string> {
+    const fixInstruction = language === "en"
+      ? "Fix the JSON syntax errors below. Return ONLY the corrected JSON. No explanation, no markdown, no comments."
+      : "修复以下JSON的语法错误。只返回修复后的JSON。不要解释，不要markdown，不要注释。";
+
+    const userPrompt = `${fixInstruction}\n\n${rawContent}`;
+
+    const response = await this.chat(
+      [
+        { role: "system", content: "You are a JSON validator. Fix broken JSON and return valid JSON only." },
+        { role: "user", content: userPrompt },
+      ],
+      { maxTokens: 4096, temperature: 0 },
+    );
+
+    // Remove THINK tags from response
+    return response.content
+      .replace(/<THINK>[\s\S]*?<\/THINK>/gi, "")
+      .replace(/<THINK>[\s\S]*/gi, "")
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .replace(/<Think>[\s\S]*?<\/Think>/gi, "")
+      .trim();
+  }
+
+  private extractNumericalFactsFromState(stateMarkdown: string): Record<string, string> | null {
+    if (!stateMarkdown || stateMarkdown === "(状态卡未更新)") {
+      return null;
+    }
+
+    const facts: Record<string, string> = {};
+    const lines = stateMarkdown.split("\n");
+
+    for (const line of lines) {
+      const colonIdx = line.indexOf(":");
+      if (colonIdx > 0) {
+        const key = line.slice(0, colonIdx).trim();
+        const value = line.slice(colonIdx + 1).trim();
+        if (key && value && !key.startsWith("#") && !key.startsWith("|")) {
+          facts[key] = value;
+        }
+      }
+    }
+
+    return Object.keys(facts).length > 0 ? facts : null;
   }
 }

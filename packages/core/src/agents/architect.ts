@@ -150,7 +150,8 @@ Core blurb principle:
 - 每卷必须与第一卷保持**同等详细程度**
 - 每卷必须包含完整格式：核心冲突（明线/暗线/深层）、章节结构表、关键转折节点、收益目标
 - 不得因卷序靠后而简化或省略任何部分
-- 所有卷的结构必须完全统一，格式一致`;
+- 所有卷的结构必须完全统一，格式一致，不能长度文档而做省略输出
+- 大纲创建规则必须细化每一章的内容，例如第1章,第2章，第3章,第4章，第5章这种详细章，每一卷的输出格式必须跟第一卷一样的格式`;
 
     const bookRulesPrompt = resolvedLanguage === "en"
       ? `Generate book_rules.md as YAML frontmatter plus narrative guidance:
