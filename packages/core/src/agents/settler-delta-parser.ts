@@ -14,10 +14,31 @@ export interface RetryableError extends Error {
 }
 
 function sanitizeJSON(str: string): string {
-  return str
+  let sanitized = str
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
     .replace(/,\s*([}\]])/g, "$1")
-    .replace(/["""]/g, '"');  // 只替换中文引号为英文引号
+    .replace(/["""]/g, '"');
+
+  // Map Chinese hook status values to English enum values
+  const statusMappings: Record<string, string> = {
+    "验证中": "progressing",
+    "潜伏": "deferred",
+    "进行中": "progressing",
+    "已完成": "resolved",
+    "已解决": "resolved",
+    "已延期": "deferred",
+    "待激活": "open",
+  };
+
+  for (const [cn, en] of Object.entries(statusMappings)) {
+    // Replace "status": "中文" with "status": "英文"
+    sanitized = sanitized.replace(
+      new RegExp(`"status"\\s*:\\s*"${cn}"`, 'g'),
+      `"status": "${en}"`
+    );
+  }
+
+  return sanitized;
 }
 
 export function parseSettlerDeltaOutput(content: string, logger?: { info: (msg: string) => void; warn: (msg: string) => void }): SettlerDeltaOutput {
