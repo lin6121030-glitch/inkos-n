@@ -9,7 +9,7 @@ import { ArchitectAgent, type ArchitectOutput } from "../agents/architect.js";
 import { FoundationReviewerAgent } from "../agents/foundation-reviewer.js";
 import { PlannerAgent, type PlanChapterOutput } from "../agents/planner.js";
 import { ComposerAgent } from "../agents/composer.js";
-import { WriterAgent, type WriteChapterInput, type WriteChapterOutput } from "../agents/writer.js";
+import { WriterAgent, type WriteChapterInput, type WriteChapterOutput, type SettleChapterStateInput } from "../agents/writer.js";
 import { LengthNormalizerAgent } from "../agents/length-normalizer.js";
 import { ChapterAnalyzerAgent } from "../agents/chapter-analyzer.js";
 import { ContinuityAuditor } from "../agents/continuity.js";
@@ -1245,6 +1245,21 @@ export class PipelineRunner {
       lengthSpec,
       initialUsage: totalUsage,
       createReviser: () => new ReviserAgent(this.agentCtxFor("reviser", bookId)),
+      createWriter: gp.numericalSystem
+        ? () => {
+            const writer = new WriterAgent(this.agentCtxFor("writer", bookId));
+            return {
+              settleChapterState: (input) => writer.settleChapterState({
+                ...input,
+                book: { ...book, id: book.id },
+              } as SettleChapterStateInput),
+              saveChapter: (bookDir, output, numericalSystem, language) => writer.saveChapter(bookDir, output, numericalSystem, language),
+            };
+          }
+        : undefined,
+      logWarn: (message) => this.logWarn(pipelineLang, message),
+      logInfo: (message) => this.logInfo(pipelineLang, message),
+      logStage: (message) => this.logStage(stageLanguage, message),
       auditor,
       normalizeDraftLengthIfNeeded: (chapterContent) => this.normalizeDraftLengthIfNeeded({
         bookId,
@@ -1259,8 +1274,6 @@ export class PipelineRunner {
       restoreLostAuditIssues: (previous, next) => this.restoreLostAuditIssues(previous, next),
       analyzeAITells,
       analyzeSensitiveWords,
-      logWarn: (message) => this.logWarn(pipelineLang, message),
-      logStage: (message) => this.logStage(stageLanguage, message),
     });
     totalUsage = reviewResult.totalUsage;
     let finalContent = reviewResult.finalContent;
@@ -1584,6 +1597,23 @@ export class PipelineRunner {
       }
       repairedOutput = recovery.output;
       validation = recovery.validation;
+    }
+
+    // 🔧 即使验证失败也保存数值快照
+    if (gp.numericalSystem && repairedOutput.runtimeStateDelta?.numericalFacts) {
+      try {
+        const writer = new WriterAgent(this.agentCtxFor("writer", bookId));
+        await writer.saveChapter(bookDir, repairedOutput, gp.numericalSystem, pipelineLang);
+        this.logInfo(pipelineLang, {
+          zh: `[runner] degraded状态已保存数值快照: ${JSON.stringify(repairedOutput.runtimeStateDelta.numericalFacts)}`,
+          en: `[runner] snapshot saved for degraded: ${JSON.stringify(repairedOutput.runtimeStateDelta.numericalFacts)}`,
+        });
+      } catch (err) {
+        this.logWarn(pipelineLang, {
+          zh: `[runner] 保存数值快照失败: ${err}`,
+          en: `[runner] snapshot save failed: ${err}`,
+        });
+      }
     }
 
     if (!validation.passed) {

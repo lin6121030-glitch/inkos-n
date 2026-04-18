@@ -51,6 +51,18 @@ export async function runChapterReviewCycle(params: {
       },
     ) => Promise<ReviseOutput>;
   };
+  readonly createWriter?: () => {
+    settleChapterState: (input: {
+      book: { id: string; genre: string; language?: string; targetChapters?: number };
+      bookDir: string;
+      chapterNumber: number;
+      title: string;
+      content: string;
+      allowReapply?: boolean;
+    }) => Promise<WriteChapterOutput>;
+    saveChapter: (bookDir: string, output: WriteChapterOutput, numericalSystem: boolean, language: "zh" | "en") => Promise<void>;
+  };
+  readonly logInfo?: (message: { zh: string; en: string }) => void;
   readonly auditor: {
     auditChapter: (
       bookDir: string,
@@ -123,6 +135,32 @@ export async function runChapterReviewCycle(params: {
       finalContent = fixResult.revisedContent;
       finalWordCount = fixResult.wordCount;
       revised = true;
+
+      // 🔧 修复：spot-fix 后需要重新结算以更新 numericalFacts
+      if (params.createWriter) {
+        try {
+          const writer = params.createWriter();
+          const chapterMeta = params.initialOutput as unknown as { title?: string };
+          const settleOutput = await writer.settleChapterState({
+            book: { id: "", genre: params.book.genre },
+            bookDir: params.bookDir,
+            chapterNumber: params.chapterNumber,
+            title: chapterMeta.title ?? `第${params.chapterNumber}章`,
+            content: finalContent,
+            allowReapply: true,
+          });
+          await writer.saveChapter(params.bookDir, settleOutput, true, "zh");
+          params.logInfo?.({
+            zh: `[spot-fix] 重新结算完成，numericalFacts: ${JSON.stringify(settleOutput.runtimeStateDelta?.numericalFacts || {})}`,
+            en: `[spot-fix] re-settlement complete, numericalFacts: ${JSON.stringify(settleOutput.runtimeStateDelta?.numericalFacts || {})}`,
+          });
+        } catch (err) {
+          params.logWarn?.({
+            zh: `[spot-fix] 重新结算失败: ${err}`,
+            en: `[spot-fix] re-settlement failed: ${err}`,
+          });
+        }
+      }
     }
   }
 
